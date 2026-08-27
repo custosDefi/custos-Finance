@@ -1,0 +1,15 @@
+.gcloudignore
+.git/
+**/.git
+**/node_modules
+**/.venv
+**/.env
+**/.env.*
+**/*.db
+**/dist
+**/build
+**/artifacts
+**/cache
+**/.DS_Store
+uniswapContract/
+ui-screenshots/

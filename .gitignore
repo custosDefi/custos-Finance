@@ -1,0 +1,15 @@
+**/node_modules/
+**/.venv/
+**/.env
+**/.env.local
+**/.env.*
+!**/.env.example
+**/*.db
+**/__pycache__/
+**/dist/
+**/build/
+**/artifacts/
+**/cache/
+**/coverage/
+ui-screenshots/
+.DS_Store

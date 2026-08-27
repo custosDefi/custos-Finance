@@ -1,0 +1,66 @@
+{
+  "network": {
+    "name": "GIWA Sepolia",
+    "chainId": 91342
+  },
+  "deployer": "0xD017bCFa977511794AD302F0b7eDBF59fAC6ee42",
+  "deployedAt": "2026-06-20T15:58:16.942Z",
+  "contracts": {
+    "verifiedToken": "0xBCdB22f56642DE57624CfC2fBb9eE398cF3CA268",
+    "verifiedTokenFaucet": "0xfe4b4F5f2f8843dC9Ca75E563f2f7eB0f44Ae83e",
+    "registry": "0x0ebb93b30A7CFc7454C448fB35f69738Da7f1423",
+    "assetFactory": "0x1B3285E6dD4B523951ee9fc72a8aB8bc6732FD3f",
+    "poolFactory": "0x698E2D7d225a650D5a5BF4A92De06021E7fb1cBa"
+  },
+  "markets": [
+    {
+      "name": "Korea Export Invoice 2026",
+      "symbol": "rKINV26",
+      "maturity": "2026-08-30",
+      "risk": 31,
+      "supply": "1000000",
+      "weight": 30,
+      "assetPerQuote": 1,
+      "assetId": "0x4a17ccc1345565f0e2c83d35ff19b29e803906d2c6a3c501eaa9f95d91cc15ac",
+      "tokenAddress": "0x39Cd9fe82D1bE999756f8E78185bc5f864d055e2",
+      "poolAddress": "0xb6cA1e4d3E1D3dB883F8FfBF009361366114218B",
+      "documentHash": "0x81c9eb715050faf3c4a246040a9916ba330838164215ffe1cbad1fb4c3ffbf74",
+      "metadataURI": "ipfs://giwa-rwa-demo/rkinv26",
+      "assetLiquidity": "1.8",
+      "quoteLiquidity": "1.8"
+    },
+    {
+      "name": "Solar Equipment Lease",
+      "symbol": "rSOLAR27",
+      "maturity": "2027-01-15",
+      "risk": 39,
+      "supply": "1000000",
+      "weight": 45,
+      "assetPerQuote": 1,
+      "assetId": "0x415cebc1fd141e39ca35a1525abc4831531cc37747b23b73d1f9e537860a51fe",
+      "tokenAddress": "0xfC7905DD8Add3A4bE8Df38c9e31d39181fcE6b44",
+      "poolAddress": "0x180D939FBaed64720B7619387E33AdB5407583cd",
+      "documentHash": "0x1e3a01372e0fd6a0b40884770c24c516bce1de0fdbb9322616ff1b458c8a59e3",
+      "metadataURI": "ipfs://giwa-rwa-demo/rsolar27",
+      "assetLiquidity": "2.7",
+      "quoteLiquidity": "2.7"
+    },
+    {
+      "name": "Coffee Supply Receivable",
+      "symbol": "rCOFFEE26",
+      "maturity": "2026-10-20",
+      "risk": 58,
+      "supply": "1000000",
+      "weight": 25,
+      "assetPerQuote": 1,
+      "assetId": "0x9e1931209a800d8a282827dc2f57f9a03af7b9fd9fae0e39f5227f3b1e26b567",
+      "tokenAddress": "0xfAd9E18002a96E0500A94eCFEa4Df106aA1a11AE",
+      "poolAddress": "0x133FAd2777A1e4fDFFCe219d13D0a81dF90cFbD3",
+      "documentHash": "0xda4d833714785a56dcefddd1fa0d5c3a61ff8a6cadaab28ea47415baa0814dfe",
+      "metadataURI": "ipfs://giwa-rwa-demo/rcoffee26",
+      "assetLiquidity": "1.5",
+      "quoteLiquidity": "1.5"
+    }
+  ],
+  "bootstrappedAt": "2026-06-20T16:07:53.411Z"
+}
