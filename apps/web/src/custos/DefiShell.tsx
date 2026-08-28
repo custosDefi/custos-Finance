@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   Droplets,
   FileCheck2,
+  Landmark,
   LayoutDashboard,
   Menu as MenuIcon,
   Search,
@@ -36,6 +37,7 @@ import {
 } from './SpotPages'
 import PublicBetaPage from './PublicBetaPage'
 import CustosPerpTerminal from './CustosPerpTerminal'
+import { RwaExchangeConsole } from './RwaExchange'
 
 type WorkspaceTab =
   | 'swap'
@@ -43,9 +45,11 @@ type WorkspaceTab =
   | 'markets'
   | 'spot'
   | 'liquidity'
+  | 'swapLiquidity'
   | 'portfolio'
   | 'season'
   | 'transparency'
+  | 'rwa'
   | 'perpetuals'
 
 type Quote = {
@@ -71,13 +75,15 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'swap', label: 'Swap', description: 'Trade tokens', icon: ArrowLeftRight },
-  { id: 'liquidity', label: 'Liquidity', description: 'Manage Swap pools', icon: Droplets },
+  { id: 'swapLiquidity', label: 'Swap Liquidity', description: 'Manage Custos V2 pools', icon: Droplets },
   { id: 'spot', label: 'Spot Trade', description: 'Trade synthetic assets', icon: ArrowLeftRight },
+  { id: 'liquidity', label: 'Spot Liquidity', description: 'Manage synthetic pools', icon: Droplets },
   { id: 'markets', label: 'Real Markets', description: 'Pyth reference markets', icon: Search },
   { id: 'perpetuals', label: 'Perpetuals', description: 'Leveraged testnet markets', icon: TrendingUp },
   { id: 'portfolio', label: 'Portfolio', description: 'Wallet, positions and activity', icon: Wallet },
   { id: 'season', label: 'Season 1', description: 'Verified participation', icon: Trophy },
   { id: 'transparency', label: 'Transparency', description: 'Contracts and proof data', icon: ShieldCheck },
+  { id: 'rwa', label: 'RWA Exchange', description: 'Proof, assets and RWA pools', icon: Landmark },
 ]
 
 const MARKET_FALLBACKS: Record<string, { name: string; unit: string; image: string; accent: string }> = {
@@ -112,9 +118,7 @@ function tabFromLocation(pathname: string, search: string): WorkspaceTab {
 
 function pathForTab(tab: WorkspaceTab) {
   if (tab === 'swap' || tab === 'overview') return '/defi'
-  // The primary Liquidity tab belongs to the Custos Swap V2 pool manager.
-  // The RWA liquidity view remains available at /defi?tab=liquidity for now.
-  if (tab === 'liquidity') return '/defi/liquidity/v2'
+  if (tab === 'swapLiquidity') return '/defi/liquidity/v2'
   return `/defi/${tab}`
 }
 
@@ -290,12 +294,12 @@ function WorkspaceContent({
     return (
       <div className="defi-fade-in">
         <SectionHeading
-          eyebrow="LIQUIDITY"
+          eyebrow="SPOT LIQUIDITY"
           title="Provide liquidity across the market layers."
           description="Use the real-price synthetic pools for tUSDC LP inventory, or open the Custos V2 pool manager for classic pair liquidity, add and remove flows."
           action={(
             <button type="button" className="defi-secondary-button" onClick={() => window.location.hash = '/defi/liquidity/v2'}>
-              Open V2 pools <Droplets size={15} />
+              Open Swap V2 pools <Droplets size={15} />
             </button>
           )}
         />
@@ -303,9 +307,17 @@ function WorkspaceContent({
       </div>
     )
   }
+  if (tab === 'swapLiquidity') {
+    return (
+      <div className="defi-core-page">
+        <Pool />
+      </div>
+    )
+  }
   if (tab === 'portfolio') return <SpotPortfolioPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
   if (tab === 'season') return <PublicBetaPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
   if (tab === 'transparency') return <SpotTransparencyPage />
+  if (tab === 'rwa') return <RwaExchangeConsole />
   return (
     <div className="defi-fade-in">
       <SectionHeading
@@ -344,7 +356,7 @@ export default function DefiShell() {
   const routePath = location.pathname
   const legacyV2 = routePath === '/defi/spot/v2' || routePath === '/defi/liquidity/v2'
   const activeTab: WorkspaceTab = legacyV2
-    ? (routePath.includes('/liquidity/') ? 'liquidity' : 'swap')
+    ? (routePath === '/defi/liquidity/v2' ? 'swapLiquidity' : 'swap')
     : tab
 
   return (
@@ -419,8 +431,8 @@ export default function DefiShell() {
               <Route exact path="/swap" render={() => <Redirect to="/defi" />} />
               <Route exact path="/swap/:outputCurrency" render={() => <Redirect to="/defi" />} />
               <Route exact path="/send" render={() => <Redirect to="/defi" />} />
-              <Route exact path="/create" render={() => <Redirect to="/defi/liquidity" />} />
-              <Route exact path="/remove/:tokens" render={() => <Redirect to="/defi/liquidity" />} />
+              <Route exact path="/create" render={() => <Redirect to="/defi/liquidity/v2" />} />
+              <Route exact path="/remove/:tokens" render={() => <Redirect to="/defi/liquidity/v2" />} />
               <Route exact path="/perp" render={() => <Redirect to="/defi/perpetuals" />} />
               <Route exact path="/pool" render={() => <Redirect to="/defi/liquidity/v2" />} />
               <Route exact path="/find" render={() => <div className="defi-core-page"><PoolFinder /></div>} />
