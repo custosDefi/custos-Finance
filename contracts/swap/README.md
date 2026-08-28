@@ -9,12 +9,18 @@
 ```bash
 npm install --legacy-peer-deps
 npx hardhat deploy --network local --tags main
-npx hardhat test --network local
+npm test
 npx hardhat run --network local scripts/verify-local-interactions.js
 ```
 
 默认本地 RPC 是 `http://127.0.0.1:7545`，部署结果写入
 `deployments/local/main-contracts.json`。
+
+`test/current/` 覆盖当前部署脚本和前端实际使用的 Uniswap V2-compatible
+Factory、Router、WETH、Multicall、交易和流动性流程。仓库中原有的
+Balancer/CRP 测试脚本仍保留在 `test/` 下作为历史资料，但对应的
+`Factory`、`CRPFactory`、`LiquidityPool` 源码不在原始导入中，因此不属于当前
+默认协议测试入口。
 
 ## 安全说明
 

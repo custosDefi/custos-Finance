@@ -12,12 +12,14 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
+from network_config import network_config
+
 router = APIRouter(prefix="/api/beta", tags=["Custos Finance Public Beta"])
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / os.getenv("BETA_DATABASE_PATH", "kelq_beta.db")
 CONFIG_PATH = BASE_DIR / "beta-contracts.generated.json"
-CHAIN_ID = 91342
+CHAIN_ID = int(network_config()["chain_id"])
 
 RPC_URLS = []
 for candidate in [
@@ -327,9 +329,10 @@ def profile_payload(conn: sqlite3.Connection, wallet: str) -> dict[str, Any]:
 @router.get("/config")
 def beta_config() -> dict[str, Any]:
     config = load_contract_config()
+    chain_id = int(config.get("chainId") or network_config()["chain_id"])
     return {
         "season": "S1",
-        "chainId": CHAIN_ID,
+        "chainId": chain_id,
         "verificationReady": bool(config.get("ready")),
         "pointsDisclaimer": "Testnet participation points only. No token, airdrop, reward, or monetary value is promised.",
         "rules": [

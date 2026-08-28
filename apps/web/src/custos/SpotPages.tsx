@@ -28,13 +28,14 @@ import {
   TEST_USDC_ABI,
   ZERO,
 } from './spotContracts';
+import { CUSTOS_API_BASE, MARKET_NETWORK, ensureMarketNetwork } from './marketNetwork';
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000');
+  CUSTOS_API_BASE;
 const GIWA_EXPLORER =
-  import.meta.env.VITE_GIWA_EXPLORER || 'https://sepolia-explorer.giwa.io';
-const CHAIN_ID = Number(import.meta.env.VITE_GIWA_CHAIN_ID || 91342);
+  MARKET_NETWORK.explorer || import.meta.env.VITE_GIWA_EXPLORER || 'https://sepolia-explorer.giwa.io';
+const CHAIN_ID = MARKET_NETWORK.chainId;
+const NETWORK_NAME = MARKET_NETWORK.name;
 
 export type SpotSymbol = 'XAU' | 'XAG' | 'OIL';
 
@@ -159,10 +160,11 @@ function useRealQuotes() {
 async function freshWallet() {
   const ethereum = (window as any).ethereum;
   if (!ethereum) throw new Error('Install an EVM wallet first.');
+  await ensureMarketNetwork(ethereum);
   const bp = new BrowserProvider(ethereum);
   const network = await bp.getNetwork();
   if (Number(network.chainId) !== CHAIN_ID) {
-    throw new Error('Switch wallet to GIWA Sepolia first.');
+    throw new Error(`Switch wallet to ${NETWORK_NAME} first.`);
   }
   const signer = await bp.getSigner();
   return { bp, signer, address: await signer.getAddress() };

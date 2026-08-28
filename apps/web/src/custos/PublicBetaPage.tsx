@@ -13,10 +13,10 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
+import { CUSTOS_API_BASE } from './marketNetwork';
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000');
+  CUSTOS_API_BASE;
 
 type Profile = {
   wallet: string;

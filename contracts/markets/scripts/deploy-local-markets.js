@@ -1,4 +1,5 @@
 const hre = require('hardhat');
+const path = require('path');
 const {
   FEEDS,
   SPOT_MARKETS,
@@ -7,9 +8,11 @@ const {
   perpMarketId,
   rwaAssetId,
 } = require('./market-definitions');
-const { writeDeploymentFiles } = require('./write-deployment');
+const { beginDeployment, failDeployment, writeDeploymentFiles } = require('./write-deployment');
 
 const { ethers, network } = hre;
+const root = path.resolve(__dirname, '../../..');
+let deploymentRun;
 
 async function deploy(name, args = []) {
   const factory = await ethers.getContractFactory(name);
@@ -220,6 +223,14 @@ async function deployPerps({ owner, quoteToken, oracle }) {
 
 async function main() {
   const [owner] = await ethers.getSigners();
+  const chainId = Number(network.config.chainId || 47805);
+  const networkInfo = { name: 'Custos Local', chainId };
+  deploymentRun = beginDeployment({
+    root,
+    network: networkInfo,
+    deployer: owner.address,
+    requestedRwaQuote: 'project',
+  });
   const quoteToken = await deploy('TestUSDC', [owner.address]);
   const oracle = await deploy('MockOracleRouter', [owner.address]);
 
@@ -229,11 +240,9 @@ async function main() {
   const spot = await deploySpot({ owner, quoteToken, oracle });
   const perps = await deployPerps({ owner, quoteToken, oracle });
 
-  const chainId = Number(network.config.chainId || 47805);
-  const root = require('path').resolve(__dirname, '../../..');
   const deployment = writeDeploymentFiles({
     root,
-    network: { name: 'Custos Local', chainId },
+    network: networkInfo,
     deployer: owner.address,
     pyth: '',
     contracts: {
@@ -248,6 +257,13 @@ async function main() {
     rwa,
     spot,
     perps: perps.markets,
+    recordHistory: true,
+    deploymentRunId: deploymentRun.runId,
+    deploymentMetadata: {
+      requestedRwaQuote: 'project',
+      selectedRwaQuote: 'project',
+      officialCanReceive: false,
+    },
   });
 
   console.log(JSON.stringify({
@@ -260,6 +276,11 @@ async function main() {
 }
 
 main().catch((error) => {
+  try {
+    failDeployment({ root, runId: deploymentRun?.runId, error });
+  } catch (recordError) {
+    console.error(`Unable to record failed deployment: ${recordError.message}`);
+  }
   console.error(error);
   process.exitCode = 1;
 });

@@ -11,8 +11,26 @@ const FEEDS = Object.freeze({
   AAPL: '0x49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688',
   NVDA: '0xb1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593',
   XAU: '0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2',
+  // Keep these IDs byte32-sized.  The previous XAG value had one extra
+  // hexadecimal character and was rejected by Hermes/Pyth Core.
   XAG: '0xf2fb02c32b055c805e7238d628e5e9dadef274376114eb1f012337cabe93871e',
-  OIL: '0x925ca92ff005ae943c158e3563f59698ce7e75c5a8c8dd43303a0a154887b3e6',
+  // USOILSPOT was retired from the current Hermes catalogue.  WTIX6 is the
+  // currently accessible October 2026 WTI reference used by this testnet.
+  OIL: '0xf8c2191e76f7f4d5335e7f4e8f81ab0df6360d54ee020874222841894203e9d7',
+});
+
+// Testnet-only safety prices used when a Pyth feed is gated or temporarily
+// unavailable to the deployer's entitlement. Pyth remains the preferred
+// source whenever a signed update is available.
+const FALLBACK_ORACLE_PRICES = Object.freeze({
+  BTC: '100000',
+  ETH: '4000',
+  SOL: '200',
+  AAPL: '220',
+  NVDA: '180',
+  XAU: '2300',
+  XAG: '28',
+  OIL: '80',
 });
 
 const SPOT_MARKETS = Object.freeze([
@@ -39,7 +57,7 @@ const SPOT_MARKETS = Object.freeze([
     name: 'Custos Synthetic WTI',
     symbol: 'rWTI',
     underlying: 'WTI/USD',
-    pythSymbol: 'Commodities.USOILSPOT',
+    pythSymbol: 'Commodities.WTIX6/USD',
     unit: '1 token = 1 barrel WTI reference',
     price18: '75',
   },
@@ -79,6 +97,7 @@ module.exports = {
   SPOT_MARKETS,
   PERP_MARKETS,
   RWA_MARKETS,
+  FALLBACK_ORACLE_PRICES,
   spotFeedId,
   perpMarketId,
   rwaAssetId,

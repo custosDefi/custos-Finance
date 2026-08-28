@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CUSTOS_API_BASE } from './marketNetwork';
 
 export type Quote = {
   symbol: string;
@@ -23,8 +24,7 @@ export type Market = {
 };
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000');
+  CUSTOS_API_BASE;
 
 function wsUrl() {
   const u = new URL(API_BASE);

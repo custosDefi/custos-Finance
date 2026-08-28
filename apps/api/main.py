@@ -26,18 +26,26 @@ from pydantic import BaseModel, Field, field_validator
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
+# Keep Pyth credentials outside the repository when they are shared with the
+# deployment scripts.  An explicit process environment variable still wins;
+# this only fills values that are not already present.
+PYTH_ENV_FILE = os.getenv("PYTH_ENV_FILE", "").strip()
+if PYTH_ENV_FILE:
+    load_dotenv(PYTH_ENV_FILE)
+
+from network_config import network_config
+
 from perp_market import router as perp_router, start_perp_stream, stop_perp_stream
 from real_market import router as real_market_router
 from public_beta import router as public_beta_router
 
 DB_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "rwa_exchange.db")
 MARKET_CONFIG_PATH = BASE_DIR / "market-config.json"
-GIWA_RPC_URL = os.getenv("GIWA_RPC_URL", "https://sepolia-rpc.giwa.io")
-GIWA_FLASHBLOCKS_RPC_URL = os.getenv(
-    "GIWA_FLASHBLOCKS_RPC_URL", "https://sepolia-rpc-flashblocks.giwa.io"
-)
-GIWA_EXPLORER_URL = os.getenv("GIWA_EXPLORER_URL", "https://sepolia-explorer.giwa.io")
-CHAIN_ID = 91342
+_network = network_config()
+GIWA_RPC_URL = _network["rpc"]
+GIWA_FLASHBLOCKS_RPC_URL = _network["flashblocks_rpc"]
+GIWA_EXPLORER_URL = _network["explorer"]
+CHAIN_ID = int(_network["chain_id"])
 
 app = FastAPI(
     title="GIWA RWA Exchange API",
@@ -189,7 +197,11 @@ def ensure_column(conn: sqlite3.Connection, table: str, column: str, definition:
 
 def load_market_config() -> dict[str, Any]:
     if not MARKET_CONFIG_PATH.exists():
-        return {"network": {"name": "GIWA Sepolia", "chainId": CHAIN_ID}, "contracts": {}, "markets": []}
+        return {
+            "network": {"name": _network["name"], "chainId": CHAIN_ID},
+            "contracts": {},
+            "markets": [],
+        }
     try:
         parsed = json.loads(MARKET_CONFIG_PATH.read_text(encoding="utf-8"))
         if not isinstance(parsed, dict):
@@ -197,7 +209,7 @@ def load_market_config() -> dict[str, Any]:
         return parsed
     except Exception as exc:  # pragma: no cover - defensive error path
         return {
-            "network": {"name": "GIWA Sepolia", "chainId": CHAIN_ID},
+            "network": {"name": _network["name"], "chainId": CHAIN_ID},
             "contracts": {},
             "markets": [],
             "warning": f"Could not read market-config.json: {exc}",
@@ -246,7 +258,7 @@ def registry_payload(asset: dict[str, Any]) -> str:
         "documentHash": asset["document_hash"],
         "riskScore": asset["risk_score"],
         "status": asset["status"],
-        "network": "GIWA Sepolia",
+        "network": network_config()["name"],
     }
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
@@ -425,15 +437,67 @@ def sync_chain_config(conn: sqlite3.Connection) -> None:
         if not asset:
             continue
         conn.execute(
-            """UPDATE assets SET onchain_asset_id = ?, token_address = ?, pool_address = ?, updated_at = ?
-            WHERE id = ?""",
-            (market.get("assetId", ""), market.get("tokenAddress", ""), market.get("poolAddress", ""), now_iso(), asset["id"]),
+            """
+            UPDATE assets SET
+              name = COALESCE(?, name),
+              asset_type = COALESCE(?, asset_type),
+              maturity_date = COALESCE(?, maturity_date),
+              document_hash = COALESCE(?, document_hash),
+              metadata_uri = COALESCE(?, metadata_uri),
+              status = COALESCE(?, status),
+              risk_score = COALESCE(?, risk_score),
+              onchain_asset_id = COALESCE(?, onchain_asset_id),
+              token_address = COALESCE(?, token_address),
+              pool_address = COALESCE(?, pool_address),
+              updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                market.get("name"),
+                market.get("asset_type"),
+                market.get("maturity"),
+                market.get("documentHash"),
+                market.get("metadataURI"),
+                "Verified" if market.get("assetId") else None,
+                market.get("risk"),
+                market.get("assetId"),
+                market.get("tokenAddress"),
+                market.get("poolAddress"),
+                now_iso(),
+                asset["id"],
+            ),
         )
+        refreshed_asset = conn.execute(
+            "SELECT * FROM assets WHERE id = ?", (asset["id"],)
+        ).fetchone()
+        if refreshed_asset:
+            conn.execute(
+                "UPDATE assets SET registry_payload = ? WHERE id = ?",
+                (registry_payload(dict(refreshed_asset)), asset["id"]),
+            )
         pool = conn.execute("SELECT id FROM pools WHERE asset_id = ?", (asset["id"],)).fetchone()
+        asset_reserve = market.get("assetLiquidity")
+        quote_reserve = market.get("quoteLiquidity")
         if pool:
             conn.execute(
-                "UPDATE pools SET name = ?, quote_symbol = ?, pool_address = ?, token_address = ?, updated_at = ? WHERE id = ?",
-                (f"{symbol} / {quote_symbol}", quote_symbol, market.get("poolAddress", ""), market.get("tokenAddress", ""), now_iso(), pool["id"]),
+                """
+                UPDATE pools SET
+                  name = ?, quote_symbol = ?, pool_address = ?, token_address = ?,
+                  asset_reserve = COALESCE(?, asset_reserve),
+                  quote_reserve = COALESCE(?, quote_reserve),
+                  updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    f"{symbol} / {quote_symbol}",
+                    quote_symbol,
+                    market.get("poolAddress") or None,
+                    market.get("tokenAddress") or None,
+                    float(asset_reserve) if asset_reserve is not None else None,
+                    float(quote_reserve) if quote_reserve is not None else None,
+                    now_iso(),
+                    pool["id"],
+                ),
             )
         elif market.get("poolAddress"):
             conn.execute(
@@ -441,9 +505,16 @@ def sync_chain_config(conn: sqlite3.Connection) -> None:
                 fee_bps, volume_24h, pool_address, token_address, active, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, 30, 0, ?, ?, 1, ?, ?)""",
                 (
-                    asset["id"], f"{symbol} / {quote_symbol}", symbol, quote_symbol, float(market.get("assetLiquidity", 0)),
-                    float(market.get("quoteLiquidity", 0)), market.get("poolAddress", ""),
-                    market.get("tokenAddress", ""), now_iso(), now_iso(),
+                    asset["id"],
+                    f"{symbol} / {quote_symbol}",
+                    symbol,
+                    quote_symbol,
+                    float(market.get("assetLiquidity", 0)),
+                    float(market.get("quoteLiquidity", 0)),
+                    market.get("poolAddress", ""),
+                    market.get("tokenAddress", ""),
+                    now_iso(),
+                    now_iso(),
                 ),
             )
 
@@ -499,10 +570,12 @@ def root() -> dict[str, Any]:
 def health() -> dict[str, Any]:
     config = load_market_config()
     contracts = config.get("contracts", {})
+    network = config.get("network") or {}
+    chain_id = int(network.get("chainId") or CHAIN_ID)
     return {
         "ok": True,
         "service": "GIWA RWA Exchange API",
-        "chainId": CHAIN_ID,
+        "chainId": chain_id,
         "rpc": GIWA_RPC_URL,
         "flashblocksRpc": GIWA_FLASHBLOCKS_RPC_URL,
         "explorer": GIWA_EXPLORER_URL,
@@ -515,8 +588,9 @@ def health() -> dict[str, Any]:
 def config() -> dict[str, Any]:
     parsed = load_market_config()
     contracts = parsed.get("contracts", {})
+    network = parsed.get("network") or {"name": _network["name"], "chainId": CHAIN_ID}
     return {
-        "network": parsed.get("network", {"name": "GIWA Sepolia", "chainId": CHAIN_ID}),
+        "network": network,
         "contracts": contracts,
         "markets": parsed.get("markets", []),
         "settlementToken": parsed.get("settlementToken", {
@@ -826,7 +900,7 @@ async def json_rpc(method: str, params: Optional[list[Any]] = None, use_flashblo
     url = GIWA_FLASHBLOCKS_RPC_URL if use_flashblocks else GIWA_RPC_URL
     body = {"jsonrpc": "2.0", "method": method, "params": params or [], "id": 1}
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
             response = await client.post(url, json=body)
             response.raise_for_status()
             data = response.json()

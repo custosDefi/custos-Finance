@@ -5,11 +5,11 @@
     "defi",
     "local"
   ],
-  "timestamp": "2026-08-27T10:26:36.742Z",
+  "timestamp": "2026-08-28T10:35:24.361Z",
   "tokens": [
     {
       "chainId": 47805,
-      "address": "0x7969c5eD335650692Bc04293B07F5BF2e7A673C0",
+      "address": "0x9338CA7d556248055f5751d85cDA7aD6eF254433",
       "name": "Custos Token A",
       "symbol": "CUSTOS-A",
       "decimals": 18,
@@ -17,7 +17,7 @@
     },
     {
       "chainId": 47805,
-      "address": "0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650",
+      "address": "0x9c65f85425c619A6cB6D29fF8d57ef696323d188",
       "name": "Custos Token B",
       "symbol": "CUSTOS-B",
       "decimals": 18,
@@ -25,7 +25,7 @@
     },
     {
       "chainId": 47805,
-      "address": "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+      "address": "0x286B8DecD5ED79c962b2d8F4346CD97FF0E2C352",
       "name": "Wrapped Ether",
       "symbol": "WETH",
       "decimals": 18,

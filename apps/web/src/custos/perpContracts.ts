@@ -36,13 +36,6 @@ export const ENGINE_ABI = [
 ];
 
 export const GIWA = {
-  chainId: 91342,
-  hexChainId: '0x164ce',
-  name: 'GIWA Sepolia',
-  rpc:
-    import.meta.env.VITE_GIWA_RPC ||
-    'https://sepolia-rpc.giwa.io',
-  explorer:
-    import.meta.env.VITE_GIWA_EXPLORER ||
-    'https://sepolia-explorer.giwa.io',
+  ...MARKET_NETWORK,
 };
+import { MARKET_NETWORK } from './marketNetwork';

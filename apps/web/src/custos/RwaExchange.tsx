@@ -42,21 +42,18 @@ import {
   X,
 } from 'lucide-react';
 import { ERC20_ABI, POOL_ABI } from './contracts';
+import {
+  CUSTOS_API_BASE,
+  MARKET_NETWORK,
+  WALLET_NETWORK,
+  ensureMarketNetwork,
+} from './marketNetwork';
 
-const API_BASE = import.meta.env.VITE_API_BASE ||
-  (typeof window !== 'undefined' && /^https?:\/\/(localhost|127\.0\.0\.1)/.test(window.location.origin)
-    ? 'http://127.0.0.1:8001'
-    : 'https://giwa-rwa-exchange.onrender.com');
-const CHAIN_ID = Number(import.meta.env.VITE_GIWA_CHAIN_ID || 91342);
-const CHAIN_HEX = `0x${CHAIN_ID.toString(16)}`;
+const API_BASE = CUSTOS_API_BASE;
+const CHAIN_ID = MARKET_NETWORK.chainId;
 const PLAYGROUND_URL = 'https://sepolia-playground.giwa.io/';
-const GIWA_NETWORK = {
-  chainId: CHAIN_HEX,
-  chainName: 'GIWA Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: [import.meta.env.VITE_GIWA_RPC || 'https://sepolia-rpc.giwa.io'],
-  blockExplorerUrls: [import.meta.env.VITE_GIWA_EXPLORER || 'https://sepolia-explorer.giwa.io'],
-};
+const GIWA_NETWORK = WALLET_NETWORK;
+const NETWORK_NAME = MARKET_NETWORK.name;
 
 type Tab = 'overview' | 'markets' | 'trade' | 'liquidity' | 'portfolio' | 'season' | 'proof' | 'perp';
 type TradeSide = 'buy' | 'sell';
@@ -105,7 +102,7 @@ const META: Record<string, AssetMeta> = {
     image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1600&q=88',
     category: 'Trade invoice',
     issuer: 'Busan Supply Co.',
-    description: 'A GIWA Sepolia test market with a visible proof record and AMM liquidity.',
+    description: 'A test market with a visible proof record and AMM liquidity.',
   },
   rSOLAR27: {
     image: 'https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1600&q=88',
@@ -125,7 +122,7 @@ const DEFAULT_META: AssetMeta = {
   image: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1600&q=88',
   category: 'Verified RWA',
   issuer: 'GIWA Test Issuer',
-  description: 'A GIWA Sepolia test RWA market. It has no legal claim, redemption right, or cash value.',
+  description: 'A test RWA market. It has no legal claim, redemption right, or cash value.',
 };
 
 const NAV: Array<{ id: Tab; label: string; icon: typeof LayoutDashboard }> = [
@@ -201,7 +198,7 @@ const REAL_ASSETS: RealAsset[] = [
     unit: 'USD / barrel',
     image: '/assets/oil-market.svg',
     description:
-      'WTI crude-oil reference price using Pyth USOILSPOT, a non-expiring energy spot/CFD reference feed.',
+      'WTI crude-oil reference price using the current Pyth WTI futures reference feed.',
   },
 ];
 
@@ -316,7 +313,9 @@ function ratio(value: bigint, decimals: number) {
 }
 
 function explorer(address: string) {
-  return `${GIWA_NETWORK.blockExplorerUrls[0]}/address/${address}`;
+  return MARKET_NETWORK.explorer
+    ? `${MARKET_NETWORK.explorer}/address/${address}`
+    : '#';
 }
 
 function GiwaMark({ size = 44 }: { size?: number }) {
@@ -366,7 +365,7 @@ function TerminalApp() {
   const [slippage, setSlippage] = useState('0.50');
   const [liquidityInput, setLiquidityInput] = useState('10');
   const [removeInput, setRemoveInput] = useState('0');
-  const [toast, setToast] = useState('Connect a wallet to use real-price Spot, tUSDC liquidity and Perpetuals on GIWA Sepolia.');
+  const [toast, setToast] = useState(`Connect a wallet to use real-price Spot, tUSDC liquidity and Perpetuals on ${NETWORK_NAME}.`);
   const [busy, setBusy] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -393,9 +392,10 @@ function TerminalApp() {
   };
 
   const getSigner = async () => {
+    if (window.ethereum) await ensureMarketNetwork(window.ethereum);
     const provider = getProvider();
     const network = await provider.getNetwork();
-    if (Number(network.chainId) !== CHAIN_ID) throw new Error('Switch your wallet to GIWA Sepolia first.');
+    if (Number(network.chainId) !== CHAIN_ID) throw new Error(`Switch your wallet to ${NETWORK_NAME} first.`);
     return provider.getSigner();
   };
 
@@ -403,24 +403,16 @@ function TerminalApp() {
     try {
       if (!window.ethereum) throw new Error('No wallet detected.');
       await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [GIWA_NETWORK] });
-      setToast('GIWA Sepolia was added to your wallet.');
+      setToast(`${NETWORK_NAME} was added to your wallet.`);
     } catch (error) {
-      setToast(error instanceof Error ? error.message : 'Unable to add GIWA Sepolia.');
+      setToast(error instanceof Error ? error.message : `Unable to add ${NETWORK_NAME}.`);
     }
   };
 
   const connect = async () => {
     try {
       if (!window.ethereum) throw new Error('No wallet detected. Install MetaMask or another EVM wallet.');
-      const current = await window.ethereum.request({ method: 'eth_chainId' }) as string;
-      if (Number.parseInt(current, 16) !== CHAIN_ID) {
-        try {
-          await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_HEX }] });
-        } catch (error: unknown) {
-          if ((error as { code?: number }).code !== 4902) throw error;
-          await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [GIWA_NETWORK] });
-        }
-      }
+      await ensureMarketNetwork(window.ethereum);
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' }) as string[];
       const address = accounts?.[0] || '';
       setWallet(address);
@@ -467,9 +459,9 @@ function TerminalApp() {
         setSelectedSymbol((current) => current || first);
 
         if (next.demoMode) {
-          setToast('Contracts are not configured. Deploy the exchange contracts after claiming VerifiedToken in GIWA Playground.');
+          setToast('Contracts are not configured. Deploy the exchange contracts and refresh this page.');
         } else {
-          setToast('GIWA configuration loaded. Spot and Perpetuals share the same tUSDC test token.');
+          setToast(`${NETWORK_NAME} configuration loaded. Spot, RWA and Perpetuals share the ${next.settlementToken?.symbol || 'test'} quote asset.`);
         }
 
         return;
@@ -783,7 +775,7 @@ function TerminalApp() {
       <main className="relative min-h-screen lg:ml-[254px]">
         <header className="sticky top-0 z-30 border-b border-white/[.08] bg-[#06121c]/[.88] px-5 py-4 backdrop-blur-xl md:px-8">
           <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
-            <div className="flex items-center gap-3"><button onClick={() => setSidebarOpen(true)} className="grid size-10 place-items-center rounded-xl border border-white/[.1] text-white/75 lg:hidden"><Menu size={18} /></button><p className="text-[11px] font-medium tracking-[.14em] text-sky-100/70">GIWA SEPOLIA <span className="mx-2 text-emerald-300">•</span> {isOnchain ? 'ONCHAIN READY' : 'DEPLOYMENT REQUIRED'}</p></div>
+          <div className="flex items-center gap-3"><button onClick={() => setSidebarOpen(true)} className="grid size-10 place-items-center rounded-xl border border-white/[.1] text-white/75 lg:hidden"><Menu size={18} /></button><p className="text-[11px] font-medium tracking-[.14em] text-sky-100/70">{NETWORK_NAME.toUpperCase()} <span className="mx-2 text-emerald-300">•</span> {isOnchain ? 'ONCHAIN READY' : 'DEPLOYMENT REQUIRED'}</p></div>
             <div className="flex items-center gap-2">
               <button onClick={() => { void refreshConfig(); if (wallet) void refreshOnchain(wallet); }} className="secondary-button hidden items-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-medium sm:flex"><RefreshCw size={14} />Refresh</button>
               <button onClick={addNetwork} className="secondary-button hidden rounded-xl px-4 py-2.5 text-[12px] font-medium sm:block">Add GIWA</button>
@@ -1713,15 +1705,15 @@ function RealCandlestickChart({
 function TradePage({ isOnchain, market, meta, wallet, quoteBalance, quoteSymbol, assetBalance, side, setSide, amount, setAmount, output, slippage, setSlippage, onConnect, onSwap, swapBusy }: { isOnchain: boolean; market?: ChainMarket; meta: AssetMeta; wallet: string; quoteBalance: string; quoteSymbol: string; assetBalance: string; side: TradeSide; setSide: (value: TradeSide) => void; amount: string; setAmount: (value: string) => void; output: string; slippage: string; setSlippage: (value: string) => void; onConnect: () => void; onSwap: () => void; swapBusy: boolean; }) {
   if (!market) return <SetupCard />;
   return <div className="fade-up grid gap-5 xl:grid-cols-[1.08fr_.92fr]">
-    <section className="giwa-panel rounded-[26px] p-6 md:p-8"><div className="flex items-start justify-between gap-5"><div><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">PUBLIC TRADE</p><h1 className="mt-3 text-[46px] font-semibold tracking-[-.07em]">Trade real-world proof.</h1><p className="mt-3 max-w-xl text-[14px] leading-relaxed text-white/49">This is a GIWA Sepolia test AMM. Your input is an official GIWA Playground test token, not a stablecoin or real settlement asset.</p></div><StatusPill label={isOnchain ? 'ONCHAIN' : 'SETUP'} good={isOnchain} /></div>
+    <section className="giwa-panel rounded-[26px] p-6 md:p-8"><div className="flex items-start justify-between gap-5"><div><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">PUBLIC TRADE</p><h1 className="mt-3 text-[46px] font-semibold tracking-[-.07em]">Trade real-world proof.</h1><p className="mt-3 max-w-xl text-[14px] leading-relaxed text-white/49">This is a {NETWORK_NAME} test AMM. Your input is a configured test quote token, not a stablecoin or real settlement asset.</p></div><StatusPill label={isOnchain ? 'ONCHAIN' : 'SETUP'} good={isOnchain} /></div>
       <div className="mt-7 flex gap-2 rounded-full border border-white/[.1] bg-black/[.16] p-1.5"><button onClick={() => setSide('buy')} className={`flex-1 rounded-full px-4 py-2.5 text-[12px] font-medium transition ${side === 'buy' ? 'bg-emerald-300 text-[#062012]' : 'text-white/58 hover:text-white'}`}>Buy {market.symbol}</button><button onClick={() => setSide('sell')} className={`flex-1 rounded-full px-4 py-2.5 text-[12px] font-medium transition ${side === 'sell' ? 'bg-emerald-300 text-[#062012]' : 'text-white/58 hover:text-white'}`}>Sell {market.symbol}</button></div>
       <TradeField label="You pay" value={amount} setValue={setAmount} token={side === 'buy' ? quoteSymbol : market.symbol} balance={side === 'buy' ? quoteBalance : assetBalance} />
       <div className="relative z-10 -my-2 flex justify-center"><span className="grid size-11 place-items-center rounded-full border border-emerald-200/25 bg-[#091b22] text-emerald-200"><ArrowDown size={18} /></span></div>
       <TradeField label="You receive" value={trim(output, 8)} token={side === 'buy' ? market.symbol : quoteSymbol} readOnly />
-      <div className="mt-6 grid gap-3 border-t border-white/[.08] pt-5 text-[12px] sm:grid-cols-3"><Stat label="Trading fee" value="0.30%" /><Stat label="Slippage tolerance" value={`${slippage}%`} /><Stat label="Network" value="GIWA Sepolia" /></div>
+      <div className="mt-6 grid gap-3 border-t border-white/[.08] pt-5 text-[12px] sm:grid-cols-3"><Stat label="Trading fee" value="0.30%" /><Stat label="Slippage tolerance" value={`${slippage}%`} /><Stat label="Network" value={NETWORK_NAME} /></div>
       <label className="mt-5 block text-[11px] text-white/52">Slippage tolerance (%)<input value={slippage} onChange={(event) => setSlippage(event.target.value.replace(/[^0-9.]/g, ''))} className="field-surface mt-2 w-full rounded-xl px-3 py-3 text-[13px]" inputMode="decimal" /></label>
       {!wallet ? <button onClick={onConnect} className="primary-button mt-5 flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-[14px] font-semibold"><Wallet size={16} />Connect wallet</button> : <button onClick={onSwap} disabled={!isOnchain || swapBusy} className="primary-button mt-5 flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-[14px] font-semibold disabled:opacity-45">{swapBusy ? <Spinner /> : <ArrowLeftRight size={16} />}{swapBusy ? 'Submitting swap…' : `Swap with ${quoteSymbol}`}</button>}
-      <div className="mt-4 rounded-xl border border-emerald-200/[.14] bg-emerald-300/[.05] p-3 text-[11px] leading-relaxed text-white/56">Need {quoteSymbol}? Complete <strong className="text-emerald-100">Issue Dojang → Claim VerifiedToken</strong> in <a href={PLAYGROUND_URL} target="_blank" rel="noreferrer" className="text-emerald-200 underline">GIWA Playground</a>, then refresh this page.</div>
+      <div className="mt-4 rounded-xl border border-emerald-200/[.14] bg-emerald-300/[.05] p-3 text-[11px] leading-relaxed text-white/56">Need {quoteSymbol}? Use the configured testnet faucet or claim flow, then refresh your wallet balance. This asset is not a stablecoin and has no cash value.</div>
     </section>
     <aside className="overflow-hidden rounded-[26px] border border-white/[.1] bg-[#071722]"><img src={meta.image} alt="" className="h-[225px] w-full object-cover" /><div className="p-6"><p className="text-[11px] font-semibold tracking-[.13em] text-emerald-300">{market.symbol}</p><h2 className="mt-2 text-[34px] font-medium tracking-[-.06em]">{market.name}</h2><p className="mt-4 text-[13px] leading-relaxed text-white/52">{meta.description}</p><div className="mt-6 space-y-3 border-t border-white/[.08] pt-5"><Row label="Issuer" value={meta.issuer} /><Row label="Maturity" value={market.maturity} /><Row label="Document proof" value={short(market.documentHash)} /><Row label="Quote token" value={quoteSymbol} /></div><a className="mt-5 inline-flex items-center gap-1 text-[11px] text-emerald-200" href={explorer(market.poolAddress)} target="_blank" rel="noreferrer">Open pool contract <ExternalLink size={13} /></a></div></aside>
   </div>;
@@ -1734,8 +1726,8 @@ function TradeField({ label, value, setValue, token, balance, readOnly = false }
 function LiquidityPage({ isOnchain, markets, selected, setSelectedSymbol, reserves, quoteBalance, quoteSymbol, quoteDecimals, assetBalance, lpBalance, quoteAmount, setQuoteAmount, assetAmount, removeAmount, setRemoveAmount, onAdd, onRemove, busy, onTrade }: { isOnchain: boolean; markets: ChainMarket[]; selected?: ChainMarket; setSelectedSymbol: (value: string) => void; reserves: Record<string, Reserves>; quoteBalance: string; quoteSymbol: string; quoteDecimals: number; assetBalance: string; lpBalance: string; quoteAmount: string; setQuoteAmount: (value: string) => void; assetAmount: string; removeAmount: string; setRemoveAmount: (value: string) => void; onAdd: () => void; onRemove: () => void; busy: string | null; onTrade: () => void; }) {
   if (!selected) return <SetupCard />;
   const quoteReserve = reserves[selected.symbol] ? ratio(reserves[selected.symbol].quote, quoteDecimals) : Number(selected.quoteLiquidity || 0);
-  return <div className="fade-up"><section className="giwa-panel flex flex-col gap-5 rounded-[26px] px-6 py-7 md:flex-row md:items-end md:justify-between md:px-8"><div><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">AMM LIQUIDITY</p><h1 className="mt-3 text-[43px] font-semibold tracking-[-.07em]">Liquidity, after proof.</h1><p className="mt-3 max-w-xl text-[14px] leading-relaxed text-white/48">Acquire RWA inventory with official {quoteSymbol} first, then provide both tokens at the pool ratio to receive LP shares.</p></div><button onClick={onTrade} className="primary-button inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold"><ArrowLeftRight size={16} />Acquire RWA inventory</button></section>
-    <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_.95fr]"><div className="overflow-hidden rounded-[24px] border border-white/[.1] bg-[#081521]/80"><div className="grid grid-cols-[1.35fr_.7fr_.7fr_110px] gap-4 border-b border-white/[.08] px-6 py-4 text-[10px] font-medium tracking-[.11em] text-white/38 max-md:grid-cols-[1.3fr_.8fr_95px]"><span>Liquidity pool</span><span>Quote reserve</span><span className="max-md:hidden">LP fee</span><span className="text-right">Action</span></div>{markets.map((market) => <button key={market.symbol} onClick={() => setSelectedSymbol(market.symbol)} className={`grid w-full grid-cols-[1.35fr_.7fr_.7fr_110px] items-center gap-4 border-b border-white/[.07] px-6 py-5 text-left transition last:border-0 hover:bg-emerald-300/[.035] max-md:grid-cols-[1.3fr_.8fr_95px] ${selected.symbol === market.symbol ? 'bg-emerald-300/[.07]' : ''}`}><div className="flex items-center gap-3"><div className="relative flex"><span className="grid size-9 place-items-center rounded-full bg-emerald-300/[.13] text-emerald-200"><Landmark size={16} /></span><span className="-ml-2 mt-4 grid size-7 place-items-center rounded-full border border-[#0b1d2a] bg-sky-300/[.18] text-sky-100"><CircleDollarSign size={13} /></span></div><div><p className="text-[14px] font-medium text-white">{market.symbol} / {quoteSymbol}</p><p className="mt-1 text-[11px] text-white/40">Verified RWA / official test token</p></div></div><div><p className="text-[13px] text-white/85">{trim(reserves[market.symbol] ? ratio(reserves[market.symbol].quote, quoteDecimals) : Number(market.quoteLiquidity || 0), 4)}</p><p className="mt-1 text-[10px] text-emerald-300">{quoteSymbol}</p></div><p className="text-[13px] text-emerald-200 max-md:hidden">0.30%</p><span className="justify-self-end rounded-xl border border-emerald-200/22 bg-emerald-300/[.08] px-3 py-2 text-[10px] font-medium text-emerald-100">Manage</span></button>)}</div>
+  return <div className="fade-up"><section className="giwa-panel flex flex-col gap-5 rounded-[26px] px-6 py-7 md:flex-row md:items-end md:justify-between md:px-8"><div><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">AMM LIQUIDITY</p><h1 className="mt-3 text-[43px] font-semibold tracking-[-.07em]">Liquidity, after proof.</h1><p className="mt-3 max-w-xl text-[14px] leading-relaxed text-white/48">Acquire RWA inventory with the configured {quoteSymbol} test asset first, then provide both tokens at the pool ratio to receive LP shares.</p></div><button onClick={onTrade} className="primary-button inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold"><ArrowLeftRight size={16} />Acquire RWA inventory</button></section>
+    <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_.95fr]"><div className="overflow-hidden rounded-[24px] border border-white/[.1] bg-[#081521]/80"><div className="grid grid-cols-[1.35fr_.7fr_.7fr_110px] gap-4 border-b border-white/[.08] px-6 py-4 text-[10px] font-medium tracking-[.11em] text-white/38 max-md:grid-cols-[1.3fr_.8fr_95px]"><span>Liquidity pool</span><span>Quote reserve</span><span className="max-md:hidden">LP fee</span><span className="text-right">Action</span></div>{markets.map((market) => <button key={market.symbol} onClick={() => setSelectedSymbol(market.symbol)} className={`grid w-full grid-cols-[1.35fr_.7fr_.7fr_110px] items-center gap-4 border-b border-white/[.07] px-6 py-5 text-left transition last:border-0 hover:bg-emerald-300/[.035] max-md:grid-cols-[1.3fr_.8fr_95px] ${selected.symbol === market.symbol ? 'bg-emerald-300/[.07]' : ''}`}><div className="flex items-center gap-3"><div className="relative flex"><span className="grid size-9 place-items-center rounded-full bg-emerald-300/[.13] text-emerald-200"><Landmark size={16} /></span><span className="-ml-2 mt-4 grid size-7 place-items-center rounded-full border border-[#0b1d2a] bg-sky-300/[.18] text-sky-100"><CircleDollarSign size={13} /></span></div><div><p className="text-[14px] font-medium text-white">{market.symbol} / {quoteSymbol}</p><p className="mt-1 text-[11px] text-white/40">Verified RWA / test quote token</p></div></div><div><p className="text-[13px] text-white/85">{trim(reserves[market.symbol] ? ratio(reserves[market.symbol].quote, quoteDecimals) : Number(market.quoteLiquidity || 0), 4)}</p><p className="mt-1 text-[10px] text-emerald-300">{quoteSymbol}</p></div><p className="text-[13px] text-emerald-200 max-md:hidden">0.30%</p><span className="justify-self-end rounded-xl border border-emerald-200/22 bg-emerald-300/[.08] px-3 py-2 text-[10px] font-medium text-emerald-100">Manage</span></button>)}</div>
       <div className="giwa-panel rounded-[24px] p-6"><div className="flex items-center justify-between"><div><p className="text-[11px] font-semibold tracking-[.13em] text-emerald-300">MANAGE POOL</p><h2 className="mt-2 text-[30px] font-medium tracking-[-.055em]">{selected.symbol} / {quoteSymbol}</h2></div><StatusPill label={isOnchain ? 'ONCHAIN' : 'SETUP'} good={isOnchain} /></div><div className="mt-5 rounded-2xl border border-white/[.1] bg-black/[.14] p-4"><div className="flex justify-between gap-4 text-[12px]"><span className="text-white/42">Pool quote reserve</span><span>{trim(quoteReserve, 5)} {quoteSymbol}</span></div><div className="mt-3 flex justify-between gap-4 text-[12px]"><span className="text-white/42">Your balances</span><span>{trim(assetBalance, 5)} {selected.symbol} · {trim(quoteBalance, 4)} {quoteSymbol}</span></div><div className="mt-3 flex justify-between gap-4 text-[12px]"><span className="text-white/42">Your LP shares</span><span>{trim(lpBalance, 6)} LP</span></div></div><div className="mt-6"><p className="text-[12px] font-medium text-white">Add liquidity</p><label className="mt-3 block text-[11px] text-white/48">{quoteSymbol} amount<input value={quoteAmount} onChange={(event) => setQuoteAmount(event.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" className="field-surface mt-2 w-full rounded-xl px-3 py-3 text-[13px]" /></label><div className="mt-3 rounded-xl border border-emerald-200/[.14] bg-emerald-300/[.055] p-3 text-[12px] text-white/72">Required matched asset: <strong className="text-emerald-100">{trim(assetAmount, 6)} {selected.symbol}</strong></div><button onClick={onAdd} disabled={!isOnchain || busy !== null} className="primary-button mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[13px] font-semibold disabled:opacity-40">{busy === 'add-liquidity' ? <Spinner /> : <Plus size={16} />}{busy === 'add-liquidity' ? 'Adding liquidity…' : 'Add liquidity'}</button></div><div className="mt-7 border-t border-white/[.1] pt-6"><p className="text-[12px] font-medium text-white">Remove liquidity</p><label className="mt-3 block text-[11px] text-white/48">LP token amount<input value={removeAmount} onChange={(event) => setRemoveInputGuard(setRemoveAmount, event.target.value)} inputMode="decimal" placeholder="0.00" className="field-surface mt-2 w-full rounded-xl px-3 py-3 text-[13px]" /></label><button onClick={onRemove} disabled={!isOnchain || busy !== null} className="secondary-button mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[13px] font-medium disabled:opacity-40">{busy === 'remove-liquidity' ? <Spinner /> : <Droplets size={16} />}{busy === 'remove-liquidity' ? 'Removing…' : 'Remove liquidity'}</button></div></div></section></div>;
 }
 
@@ -1744,7 +1736,8 @@ function setRemoveInputGuard(setter: (value: string) => void, value: string) {
 }
 
 function ProofPage({ markets, quoteSymbol, settlement }: { markets: ChainMarket[]; quoteSymbol: string; settlement: SettlementToken }) {
-  return <div className="fade-up"><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">PROOF VAULT</p><h1 className="mt-3 text-[48px] font-semibold tracking-[-.07em]">Evidence before entry.</h1><p className="mt-4 max-w-2xl text-[14px] leading-relaxed text-white/50">Document hash, asset ID, maturity, RWA token, AMM pool, and the official quote-token relationship remain visible before any market action.</p><section className="giwa-panel mt-6 rounded-[22px] p-5"><p className="text-[11px] font-semibold tracking-[.13em] text-emerald-300">QUOTE TOKEN</p><div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-[20px] font-medium">Official GIWA Playground {quoteSymbol}</p><p className="mt-1 text-[12px] text-white/48">{settlement.disclaimer || 'Testnet-only token. Not USDC and not redeemable for cash.'}</p></div><a href={settlement.claimUrl || PLAYGROUND_URL} target="_blank" rel="noreferrer" className="secondary-button inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[12px]">Open Playground <ExternalLink size={14} /></a></div></section><div className="mt-5 grid gap-4 xl:grid-cols-3">{markets.map((market) => <article key={market.symbol} className="giwa-panel rounded-[24px] p-6"><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-300/[.1] text-emerald-200"><FileText size={18} /></span><StatusPill label="VERIFIED" /></div><p className="mt-6 text-[11px] font-semibold tracking-[.13em] text-emerald-300">{market.symbol} / {quoteSymbol}</p><h2 className="mt-2 text-[24px] font-medium tracking-[-.045em]">{market.name}</h2><div className="mt-6 space-y-3 border-t border-white/[.08] pt-5 text-[12px]"><Row label="Asset ID" value={short(market.assetId)} /><Row label="Document hash" value={short(market.documentHash)} /><Row label="Maturity" value={market.maturity} /><Row label="Token" value={short(market.tokenAddress)} /><Row label="Pool" value={short(market.poolAddress)} /></div><div className="mt-5 flex gap-3"><a className="inline-flex items-center gap-1 text-[11px] text-emerald-200" href={explorer(market.tokenAddress)} target="_blank" rel="noreferrer">Token <ExternalLink size={13} /></a><a className="inline-flex items-center gap-1 text-[11px] text-emerald-200" href={explorer(market.poolAddress)} target="_blank" rel="noreferrer">Pool <ExternalLink size={13} /></a></div></article>)}</div>{!markets.length && <SetupCard />}</div>;
+  const claimUrl = settlement.claimUrl || (settlement.official ? PLAYGROUND_URL : '');
+  return <div className="fade-up"><p className="text-[11px] font-semibold tracking-[.15em] text-emerald-300">PROOF VAULT</p><h1 className="mt-3 text-[48px] font-semibold tracking-[-.07em]">Evidence before entry.</h1><p className="mt-4 max-w-2xl text-[14px] leading-relaxed text-white/50">Document hash, asset ID, maturity, RWA token, AMM pool, and the configured quote-token relationship remain visible before any market action.</p><section className="giwa-panel mt-6 rounded-[22px] p-5"><p className="text-[11px] font-semibold tracking-[.13em] text-emerald-300">QUOTE TOKEN</p><div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-[20px] font-medium">{settlement.official ? 'Official GIWA Playground' : 'Custos project'} {quoteSymbol}</p><p className="mt-1 text-[12px] text-white/48">{settlement.disclaimer || 'Testnet-only token. Not USDC and not redeemable for cash.'}</p></div>{claimUrl ? <a href={claimUrl} target="_blank" rel="noreferrer" className="secondary-button inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[12px]">Open token flow <ExternalLink size={14} /></a> : null}</div></section><div className="mt-5 grid gap-4 xl:grid-cols-3">{markets.map((market) => <article key={market.symbol} className="giwa-panel rounded-[24px] p-6"><div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-emerald-300/[.1] text-emerald-200"><FileText size={18} /></span><StatusPill label="VERIFIED" /></div><p className="mt-6 text-[11px] font-semibold tracking-[.13em] text-emerald-300">{market.symbol} / {quoteSymbol}</p><h2 className="mt-2 text-[24px] font-medium tracking-[-.045em]">{market.name}</h2><div className="mt-6 space-y-3 border-t border-white/[.08] pt-5 text-[12px]"><Row label="Asset ID" value={short(market.assetId)} /><Row label="Document hash" value={short(market.documentHash)} /><Row label="Maturity" value={market.maturity} /><Row label="Token" value={short(market.tokenAddress)} /><Row label="Pool" value={short(market.poolAddress)} /></div><div className="mt-5 flex gap-3"><a className="inline-flex items-center gap-1 text-[11px] text-emerald-200" href={explorer(market.tokenAddress)} target="_blank" rel="noreferrer">Token <ExternalLink size={13} /></a><a className="inline-flex items-center gap-1 text-[11px] text-emerald-200" href={explorer(market.poolAddress)} target="_blank" rel="noreferrer">Pool <ExternalLink size={13} /></a></div></article>)}</div>{!markets.length && <SetupCard />}</div>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-white/[.09] bg-white/[.025] p-3"><p className="text-[10px] tracking-[.11em] text-white/40">{label}</p><p className="mt-1 truncate text-[12px] font-medium text-white/82">{value}</p></div>; }
@@ -1776,8 +1769,8 @@ function BackendWakeCard({
 
       <p className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed text-white/55">
         {offline
-          ? 'The Render service may still be starting. Your deployed contracts remain unchanged. Click Retry now to check the onchain configuration again.'
-          : `Checking your deployed GIWA markets and VerifiedToken configuration${attempt ? ` — attempt ${attempt}/8` : ''}.`}
+          ? 'The API service may still be starting. Your deployed contracts remain unchanged. Click Retry now to check the onchain configuration again.'
+          : `Checking your deployed GIWA markets and quote-token configuration${attempt ? ` — attempt ${attempt}/8` : ''}.`}
       </p>
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
@@ -1798,4 +1791,4 @@ function BackendWakeCard({
   );
 }
 
-function SetupCard() { return <div className="giwa-panel mt-6 rounded-[24px] p-7 text-center"><LockKeyhole size={25} className="mx-auto text-amber-200" /><h2 className="mt-3 text-[24px] font-medium">Contracts are not configured.</h2><p className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed text-white/48">Open GIWA Playground with your deployment wallet, complete <strong>Issue Dojang → Claim VerifiedToken</strong>, then run <code className="rounded bg-white/[.08] px-1.5 py-0.5">npm run deploy:giwa</code> and <code className="rounded bg-white/[.08] px-1.5 py-0.5">npm run bootstrap:giwa</code>. Restart FastAPI and refresh this page.</p><a href={PLAYGROUND_URL} target="_blank" rel="noreferrer" className="primary-button mt-5 inline-flex items-center gap-2 rounded-full px-5 py-3 text-[12px] font-semibold">Open GIWA Playground <ExternalLink size={14} /></a></div>; }
+function SetupCard() { return <div className="giwa-panel mt-6 rounded-[24px] p-7 text-center"><LockKeyhole size={25} className="mx-auto text-amber-200" /><h2 className="mt-3 text-[24px] font-medium">Contracts are not configured.</h2><p className="mx-auto mt-3 max-w-xl text-[13px] leading-relaxed text-white/48">Deploy the Custos market contracts on the selected test network, then restart the API and refresh this page.</p></div>; }

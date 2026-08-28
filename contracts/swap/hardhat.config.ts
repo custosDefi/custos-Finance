@@ -44,6 +44,10 @@ const CHAIN_IDS = {
    kovan: 42,
  };
 
+const KOVAN_RPC_URL = process.env.KOVAN_RPC_URL || ''
+const KOVAN_PRIVATE_KEY = process.env.KOVAN_PRIVATE_KEY || process.env.PRIVATE_KEY || ''
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
+
 module.exports = {
    defaultNetwork: 'hardhat',
 
@@ -61,9 +65,8 @@ module.exports = {
          tags: ['local']
       },
       kovan: {
-         // url: `https://kovan.infura.io/v3/${process.env.INFURA_ID}`,
-         url:"https://goerli.infura.io/v3/145acbee350d44709d5e64f496e0e954",
-         accounts: ["0xcc9693641b8de1aa54f7c606bbb92e2b7cb35c3cff721d7dbda8731cb56f6ca1"],
+         url: KOVAN_RPC_URL || 'http://127.0.0.1:7545',
+         accounts: KOVAN_PRIVATE_KEY ? [KOVAN_PRIVATE_KEY] : [],
          saveDeployments: true
        }
    },
@@ -80,6 +83,11 @@ module.exports = {
    paths: {
       deploy: 'deployments/migrations',
       deployments: 'deployments/artifacts',
+      // The imported Balancer/CRP tests are retained as legacy reference
+      // material, but their original Factory/CRPFactory source artifacts are
+      // not part of this repository. Default tests cover the deployed V2
+      // protocol that the current UI and local workflow actually use.
+      tests: 'test/current',
    },
    external: {
       contracts: [
@@ -144,6 +152,6 @@ module.exports = {
       timeout: 200000,
    },
    etherscan: {
-      apiKey: "UPVJPC4C39RIRA8NTFUF71T645DAHBGZ7A"
+      apiKey: ETHERSCAN_API_KEY
     }
 };

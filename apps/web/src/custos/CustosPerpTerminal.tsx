@@ -133,7 +133,7 @@ function errorText(error: any) {
   }
 
   if (/insufficient funds|insufficient balance|gas required exceeds allowance/i.test(message)) {
-    return 'Not enough GIWA Sepolia test ETH for gas. Get test ETH from https://faucet.giwa.io/ and try again.';
+    return `Not enough ${GIWA.name} test ETH for gas. Get test ETH from https://faucet.giwa.io/ and try again.`;
   }
 
   if (/FAUCET_COOLDOWN/i.test(message)) {
@@ -340,7 +340,11 @@ function PerpTerminalApp({
         }));
         setHistorySources((old) => ({
           ...old,
-          [`${symbol}:${timeframe}`]: body.source === 'nasdaq' ? 'NASDAQ' : 'PYTH',
+          [`${symbol}:${timeframe}`]: body.source === 'local-mock'
+            ? 'LOCAL MOCK'
+            : body.source === 'nasdaq'
+              ? 'NASDAQ'
+              : 'PYTH',
         }));
       } catch (error: any) {
         if (cancelled) return;
@@ -434,7 +438,7 @@ function PerpTerminalApp({
 
     if (Number(network.chainId) !== GIWA.chainId) {
       throw new Error(
-        `Wrong network. Expected GIWA Sepolia ${GIWA.chainId}, got ${network.chainId.toString()}.`,
+        `Wrong network. Expected ${GIWA.name} ${GIWA.chainId}, got ${network.chainId.toString()}.`,
       );
     }
 
@@ -458,7 +462,7 @@ function PerpTerminalApp({
       const code = await bp.getCode(address);
       if (!code || code === '0x') {
         throw new Error(
-          `${name} contract not found at ${address} on GIWA Sepolia. Check deployment.generated.json.`,
+          `${name} contract not found at ${address} on ${GIWA.name}. Check deployment.generated.json.`,
         );
       }
     }
@@ -475,7 +479,7 @@ function PerpTerminalApp({
       const gas = await bp.getBalance(address);
       setNativeBalance(formatUnits(gas, 18));
 
-      setStatus('Wallet connected · GIWA Sepolia ready');
+      setStatus(`Wallet connected · ${GIWA.name} ready`);
     } catch (error: any) {
       setStatus(errorText(error));
     }
@@ -514,7 +518,7 @@ function PerpTerminalApp({
           if (cancelled) return;
 
           setNativeBalance(formatUnits(gas, 18));
-          setStatus('Wallet restored · GIWA Sepolia ready');
+          setStatus(`Wallet restored · ${GIWA.name} ready`);
         } catch (error) {
           console.warn('[Custos standalone wallet hydrate]', error);
         }
@@ -544,7 +548,7 @@ function PerpTerminalApp({
         if (cancelled) return;
 
         setNativeBalance(formatUnits(gas, 18));
-        setStatus('Shared wallet synced · GIWA Sepolia ready');
+        setStatus(`Shared wallet synced · ${GIWA.name} ready`);
       } catch (error: any) {
         if (!cancelled) {
           setStatus(errorText(error));
@@ -781,7 +785,7 @@ function PerpTerminalApp({
 
     if (gas < minWei || gas === 0n) {
       throw new Error(
-        'Not enough GIWA Sepolia test ETH for gas. Get test ETH from https://faucet.giwa.io/ and try again.',
+        `Not enough ${GIWA.name} test ETH for gas. Get test ETH from https://faucet.giwa.io/ and try again.`,
       );
     }
 
@@ -941,6 +945,13 @@ function PerpTerminalApp({
 
       const body = await response.json();
 
+      if (
+        Array.isArray(body.updateData) &&
+        (GIWA.local || body.oracleMode === 'fallback' || body.source === 'testnet-fallback')
+      ) {
+        return body;
+      }
+
       if (!Array.isArray(body.updateData) || body.updateData.length === 0) {
         throw new Error('Pyth Core returned no signed updateData.');
       }
@@ -1019,8 +1030,12 @@ function PerpTerminalApp({
     await run(`Preparing ${side} ${symbol}…`, async () => {
       setPendingTxHash('');
 
-      if (!market?.quote?.fresh || !market?.quote?.price) {
-        throw new Error(`${symbol} has no fresh Pyth Pro price right now.`);
+      const quoteSource = market?.quote?.source;
+      const isConfiguredFallback =
+        quoteSource === 'testnet-fallback' || quoteSource === 'local-mock';
+
+      if (!market?.quote?.price || (!market.quote.fresh && !isConfiguredFallback)) {
+        throw new Error(`${symbol} has no usable price right now.`);
       }
 
       setStatus('Checking wallet, GIWA network and collateral…');
@@ -1197,7 +1212,7 @@ function PerpTerminalApp({
         </div>
 
         <div className="embedWallet">
-          <span>GIWA Sepolia · 91342</span>
+          <span>{GIWA.name} · {GIWA.chainId}</span>
 
           {account ? (
             <strong>{short(account)}</strong>
@@ -1579,7 +1594,7 @@ function PerpTerminalApp({
               target="_blank"
               rel="noreferrer"
             >
-              Get GIWA Sepolia test ETH for gas
+              Get {GIWA.name} test ETH for gas
             </a>
           )}
 
@@ -1595,7 +1610,7 @@ function PerpTerminalApp({
       </main>
 
       <footer>
-        <span>CUSTOS · GIWA SEPOLIA</span>
+        <span>CUSTOS · {GIWA.name.toUpperCase()}</span>
         <span>Pyth Pro = UI stream</span>
         <span>Pyth Core = onchain settlement oracle</span>
         <a href={GIWA.explorer} target="_blank" rel="noreferrer">

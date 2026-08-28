@@ -9,6 +9,7 @@
     "deploy:local": "hardhat run scripts/deploy-local-markets.js --network hardhat",
     "deploy:local:rpc": "hardhat run scripts/deploy-local-markets.js --network local",
     "deploy:giwa": "hardhat run scripts/deploy-giwa-markets.js --network giwaSepolia",
+    "smoke:giwa": "hardhat run scripts/smoke-giwa-markets.js --network giwaSepolia",
     "sync:config": "node scripts/sync-market-config.js"
   },
   "engines": {

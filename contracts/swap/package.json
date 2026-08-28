@@ -13,6 +13,7 @@
     "deploy:kovan": "hardhat deploy --network kovan --tags main",
     "mock": "hardhat deploy --tags mock",
     "test": "hardhat test --network local",
+    "test:v2": "hardhat test --network local test/current/v2.integration.js",
     "deploy:swap:local": "hardhat run --network local scripts/deploy-local-uniswap.js",
     "verify:swap:local": "hardhat run --network local scripts/verify-local-interactions.js"
   },

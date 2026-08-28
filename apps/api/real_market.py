@@ -10,6 +10,9 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException
 
+from local_market_data import local_candles, local_quote
+from network_config import is_local_network
+
 router = APIRouter()
 
 PYTH_HERMES_URL = os.getenv(
@@ -17,7 +20,12 @@ PYTH_HERMES_URL = os.getenv(
     "https://hermes.pyth.network",
 ).rstrip("/")
 PYTH_API_KEY = os.getenv("PYTH_API_KEY", "").strip()
-PYTH_PRO_API_KEY = os.getenv("PYTH_PRO_API_KEY", "").strip()
+# Pyth Core and Pyth Pro/Lazer use the same project API key in this setup.
+# Keep the dedicated variable for compatibility, but accept the Core name
+# when only one credential is configured.
+PYTH_PRO_API_KEY = (
+    os.getenv("PYTH_PRO_API_KEY", "").strip() or PYTH_API_KEY
+)
 PYTH_STREAM_CHANNEL = os.getenv(
     "PYTH_STREAM_CHANNEL",
     "fixed_rate@200ms",
@@ -54,7 +62,7 @@ REAL_MARKETS = [
         "OIL",
         "WTI Crude Oil",
         "energy",
-        "Commodities.USOILSPOT",
+        "Commodities.WTIX6/USD",
         "USD / barrel",
     ),
 ]
@@ -87,11 +95,10 @@ def history_symbols(market: RealMarket) -> list[str]:
     if market.symbol != "OIL":
         return [market.pyth_symbol]
 
-    # Core execution uses the non-expiring USOILSPOT reference.
-    # History subscriptions sometimes expose WTI futures more reliably, so
-    # try the spot reference first and then current/next monthly WTI contracts.
+    # History subscriptions expose monthly WTI futures.  Try the configured
+    # October 2026 contract first, then current/next contracts as they rotate.
     now = datetime.now(timezone.utc)
-    candidates = ["Commodities.USOILSPOT"]
+    candidates = [market.pyth_symbol]
 
     for offset in range(0, 5):
         year, month = _add_months(now.year, now.month, offset)
@@ -129,6 +136,18 @@ _quote_cache: dict[str, dict[str, Any]] = {}
 _quote_cache_at = 0.0
 _refresh_lock = asyncio.Lock()
 
+FALLBACK_FEEDS = {
+    "XAU": "0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2",
+    "XAG": "0xf2fb02c32b055c805e7238d628e5e9dadef274376114eb1f012337cabe93871e",
+    "OIL": "0xf8c2191e76f7f4d5335e7f4e8f81ab0df6360d54ee020874222841894203e9d7",
+}
+
+FALLBACK_PRICES = {
+    "XAU": 2300.0,
+    "XAG": 28.0,
+    "OIL": 80.0,
+}
+
 
 def auth_headers(key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}"} if key else {}
@@ -143,13 +162,23 @@ async def resolve_feed_id(market: RealMarket) -> str:
     if cached:
         return cached
 
-    response = await http.get(
-        f"{PYTH_HERMES_URL}/v2/price_feeds",
-        params={"query": market.pyth_symbol},
-        headers=auth_headers(PYTH_API_KEY),
-    )
+    fallback = FALLBACK_FEEDS.get(market.symbol)
+    try:
+        response = await http.get(
+            f"{PYTH_HERMES_URL}/v2/price_feeds",
+            params={"query": market.pyth_symbol},
+            headers=auth_headers(PYTH_API_KEY),
+        )
+    except httpx.HTTPError:
+        if fallback:
+            _feed_ids[market.symbol] = fallback
+            return fallback
+        raise
 
     if response.status_code >= 400:
+        if fallback:
+            _feed_ids[market.symbol] = fallback
+            return fallback
         raise HTTPException(
             status_code=502,
             detail=(
@@ -170,6 +199,9 @@ async def resolve_feed_id(market: RealMarket) -> str:
     )
 
     if not match or not match.get("id"):
+        if fallback:
+            _feed_ids[market.symbol] = fallback
+            return fallback
         raise HTTPException(
             status_code=502,
             detail=f"No exact Pyth feed found for {market.pyth_symbol}",
@@ -208,6 +240,27 @@ def parse_rpc_price(parsed: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def fallback_quote(market: RealMarket) -> dict[str, Any]:
+    now_us = int(time.time() * 1_000_000)
+    return {
+        "symbol": market.symbol,
+        "name": market.name,
+        "assetType": market.asset_type,
+        "price": FALLBACK_PRICES[market.symbol],
+        "session": "testnet",
+        "streamTimestampUs": now_us,
+        "feedUpdateTimestampUs": now_us,
+        "fresh": False,
+        "source": "testnet-fallback",
+        "sourceNode": "Custos fallback oracle",
+        "channel": "fallback",
+        "receivedAtMs": int(time.time() * 1000),
+        "ageSeconds": 0,
+        "feedId": FALLBACK_FEEDS[market.symbol],
+        "pythSymbol": market.pyth_symbol,
+    }
+
+
 async def refresh_quotes(force: bool = False) -> None:
     global _quote_cache_at
 
@@ -218,27 +271,52 @@ async def refresh_quotes(force: bool = False) -> None:
         if not force and _quote_cache and time.monotonic() - _quote_cache_at < 1.5:
             return
 
-        ids = await asyncio.gather(
-            *(resolve_feed_id(market) for market in REAL_MARKETS)
+        if is_local_network():
+            for market in REAL_MARKETS:
+                quote = local_quote(market.symbol, market.name, market.asset_type)
+                quote["feedId"] = FALLBACK_FEEDS[market.symbol]
+                quote["pythSymbol"] = market.pyth_symbol
+                _quote_cache[market.symbol] = quote
+                _feed_ids[market.symbol] = FALLBACK_FEEDS[market.symbol]
+            _quote_cache_at = time.monotonic()
+            return
+
+        resolved = await asyncio.gather(
+            *(resolve_feed_id(market) for market in REAL_MARKETS),
+            return_exceptions=True,
         )
+        resolved_by_symbol = {
+            market.symbol: value
+            for market, value in zip(REAL_MARKETS, resolved)
+        }
+        ids = [
+            value
+            for value in resolved_by_symbol.values()
+            if isinstance(value, str)
+        ]
+        if not ids:
+            for market in REAL_MARKETS:
+                _quote_cache[market.symbol] = fallback_quote(market)
+            _quote_cache_at = time.monotonic()
+            return
 
         params = [("ids[]", feed_id) for feed_id in ids]
         params.append(("parsed", "true"))
 
-        response = await http.get(
-            f"{PYTH_HERMES_URL}/v2/updates/price/latest",
-            params=params,
-            headers=auth_headers(PYTH_API_KEY),
-        )
-
-        if response.status_code >= 400:
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    f"Hermes latest price {response.status_code}: "
-                    f"{response.text[:500]}"
-                ),
+        try:
+            response = await http.get(
+                f"{PYTH_HERMES_URL}/v2/updates/price/latest",
+                params=params,
+                headers=auth_headers(PYTH_API_KEY),
             )
+        except httpx.HTTPError:
+            response = None
+
+        if response is None or response.status_code >= 400:
+            for market in REAL_MARKETS:
+                _quote_cache[market.symbol] = fallback_quote(market)
+            _quote_cache_at = time.monotonic()
+            return
 
         body = response.json()
         parsed_rows = body.get("parsed") or []
@@ -250,13 +328,19 @@ async def refresh_quotes(force: bool = False) -> None:
 
         next_cache: dict[str, dict[str, Any]] = {}
 
-        for market, feed_id in zip(REAL_MARKETS, ids):
+        for market in REAL_MARKETS:
+            feed_id = resolved_by_symbol.get(market.symbol)
+            if not isinstance(feed_id, str):
+                _quote_cache[market.symbol] = fallback_quote(market)
+                continue
             row = by_id.get(feed_id.lower())
             quote = parse_rpc_price(row or {}) if row else None
             if quote:
                 quote["feedId"] = feed_id
                 quote["pythSymbol"] = market.pyth_symbol
                 next_cache[market.symbol] = quote
+            else:
+                next_cache[market.symbol] = fallback_quote(market)
 
         if next_cache:
             _quote_cache.update(next_cache)
@@ -309,20 +393,38 @@ async def real_market_update(symbol: str) -> dict[str, Any]:
         )
 
     feed_id = await resolve_feed_id(market)
-    response = await http.get(
-        f"{PYTH_HERMES_URL}/v2/updates/price/latest",
-        params=[("ids[]", feed_id), ("parsed", "true")],
-        headers=auth_headers(PYTH_API_KEY),
-    )
-
-    if response.status_code >= 400:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                f"Hermes {response.status_code}: "
-                f"{response.text[:400]}"
-            ),
+    if is_local_network():
+        return {
+            "symbol": market.symbol,
+            "pythSymbol": market.pyth_symbol,
+            "feedId": feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "local-mock",
+        }
+    try:
+        response = await http.get(
+            f"{PYTH_HERMES_URL}/v2/updates/price/latest",
+            params=[("ids[]", feed_id), ("parsed", "true")],
+            headers=auth_headers(PYTH_API_KEY),
         )
+    except httpx.HTTPError as exc:
+        response = None
+        error_detail = f"{type(exc).__name__}: {exc}"
+    else:
+        error_detail = f"Hermes {response.status_code}: {response.text[:400]}"
+
+    if response is None or response.status_code >= 400:
+        return {
+            "symbol": market.symbol,
+            "pythSymbol": market.pyth_symbol,
+            "feedId": feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "testnet-fallback",
+            "oracleMode": "fallback",
+            "warning": error_detail,
+        }
 
     body = response.json()
     binary = (body.get("binary") or {}).get("data") or []
@@ -364,6 +466,17 @@ async def real_market_history(
             status_code=400,
             detail="Unsupported resolution. Use 1m, 5m, 30m, 2h, 6h or 1d.",
         )
+
+    if is_local_network():
+        _, seconds_per_bar = config
+        return {
+            "symbol": market.symbol,
+            "historySymbol": market.symbol,
+            "resolution": resolution,
+            "channel": "local",
+            "source": "local-mock",
+            "candles": local_candles(market.symbol, bars, seconds_per_bar),
+        }
 
     if not PYTH_PRO_API_KEY:
         raise HTTPException(
@@ -463,4 +576,3 @@ async def real_market_history(
             + " | ".join(errors[:8])
         ),
     )
-

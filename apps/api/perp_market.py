@@ -11,6 +11,9 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from local_market_data import local_candles, local_quote
+from network_config import is_local_network, network_config
+
 try:
     from websockets.asyncio.client import connect as websocket_connect
 except ImportError:
@@ -18,12 +21,19 @@ except ImportError:
 
 router = APIRouter()
 
+CHAIN_ID = int(network_config()["chain_id"])
+
 PYTH_HERMES_URL = os.getenv(
     "PYTH_HERMES_URL",
     "https://hermes.pyth.network",
 ).rstrip("/")
 PYTH_API_KEY = os.getenv("PYTH_API_KEY", "").strip()
-PYTH_PRO_API_KEY = os.getenv("PYTH_PRO_API_KEY", "").strip()
+# Pyth Core and Pyth Pro/Lazer use the same project API key in this setup.
+# Keep the dedicated variable for compatibility, but accept the Core name
+# when only one credential is configured.
+PYTH_PRO_API_KEY = (
+    os.getenv("PYTH_PRO_API_KEY", "").strip() or PYTH_API_KEY
+)
 PYTH_STREAM_CHANNEL = os.getenv("PYTH_STREAM_CHANNEL", "fixed_rate@200ms")
 PYTH_STREAM_ENDPOINTS = [
     value.strip()
@@ -123,6 +133,15 @@ PYTH_HISTORY_RESOLUTIONS = {
     "1d": ("D", 24 * 60 * 60),
 }
 
+FALLBACK_PRICES = {
+    "BTC": 100_000.0,
+    "ETH": 4_000.0,
+    "SOL": 200.0,
+    "AAPL": 220.0,
+    "NVDA": 180.0,
+    "XAU": 2_300.0,
+}
+
 NASDAQ_API_URL = "https://api.nasdaq.com/api"
 NASDAQ_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -134,6 +153,25 @@ NASDAQ_HEADERS = {
 
 def auth_headers(key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {key}"} if key else {}
+
+
+def fallback_quote(market: PerpMarket) -> dict[str, Any]:
+    now_us = int(time.time() * 1_000_000)
+    return {
+        "symbol": market.symbol,
+        "name": market.name,
+        "assetType": market.asset_type,
+        "price": FALLBACK_PRICES[market.symbol],
+        "session": "testnet",
+        "streamTimestampUs": now_us,
+        "feedUpdateTimestampUs": now_us,
+        "fresh": False,
+        "source": "testnet-fallback",
+        "sourceNode": "Custos fallback oracle",
+        "channel": "fallback",
+        "receivedAtMs": int(time.time() * 1000),
+        "ageSeconds": 0,
+    }
 
 
 def parse_market_number(value: Any) -> float | None:
@@ -360,6 +398,14 @@ class MarketStreamHub:
             return
 
         self.running = True
+        if is_local_network():
+            for market in MARKETS:
+                self.quotes[market.symbol] = local_quote(
+                    market.symbol, market.name, market.asset_type
+                )
+        else:
+            for market in MARKETS:
+                self.quotes[market.symbol] = fallback_quote(market)
         for index, url in enumerate(PYTH_STREAM_ENDPOINTS):
             if PYTH_PRO_API_KEY:
                 self.tasks.append(
@@ -602,7 +648,7 @@ async def stop_perp_stream() -> None:
 async def perp_health() -> dict[str, Any]:
     return {
         "ok": True,
-        "chainId": 91342,
+        "chainId": int(network_config()["chain_id"]),
         "pythCoreConfigured": bool(PYTH_API_KEY),
         "pythProConfigured": bool(PYTH_PRO_API_KEY),
         "streamChannel": PYTH_STREAM_CHANNEL,
@@ -620,29 +666,56 @@ async def pyth_update(symbol: str) -> dict[str, Any]:
     if not market:
         raise HTTPException(status_code=404, detail="Unknown market")
 
-    response = await http.get(
-        f"{PYTH_HERMES_URL}/v2/updates/price/latest",
-        params=[("ids[]", market.core_feed_id)],
-        headers=auth_headers(PYTH_API_KEY),
-    )
+    if is_local_network():
+        return {
+            "symbol": market.symbol,
+            "feedId": market.core_feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "local-mock",
+        }
+
+    try:
+        response = await http.get(
+            f"{PYTH_HERMES_URL}/v2/updates/price/latest",
+            params=[("ids[]", market.core_feed_id)],
+            headers=auth_headers(PYTH_API_KEY),
+        )
+    except httpx.HTTPError as exc:
+        return {
+            "symbol": market.symbol,
+            "feedId": market.core_feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "testnet-fallback",
+            "oracleMode": "fallback",
+            "warning": f"{type(exc).__name__}: {exc}",
+        }
 
     if response.status_code >= 400:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                f"Hermes {response.status_code}: "
-                f"{response.text[:300]}"
-            ),
-        )
+        return {
+            "symbol": market.symbol,
+            "feedId": market.core_feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "testnet-fallback",
+            "oracleMode": "fallback",
+            "warning": f"Hermes {response.status_code}: {response.text[:300]}",
+        }
 
     body = response.json()
     binary = (body.get("binary") or {}).get("data") or []
 
     if not binary:
-        raise HTTPException(
-            status_code=502,
-            detail="Hermes returned no binary update",
-        )
+        return {
+            "symbol": market.symbol,
+            "feedId": market.core_feed_id,
+            "updateData": [],
+            "parsed": None,
+            "source": "testnet-fallback",
+            "oracleMode": "fallback",
+            "warning": "Hermes returned no binary update",
+        }
 
     update_data = [
         value
@@ -687,6 +760,17 @@ async def market_history(
                 + ", ".join(PYTH_HISTORY_RESOLUTIONS)
             ),
         )
+
+    if is_local_network():
+        _, seconds_per_bar = resolution_cfg
+        return {
+            "symbol": market.symbol,
+            "historySymbol": market.symbol,
+            "resolution": resolution,
+            "channel": "local",
+            "source": "local-mock",
+            "candles": local_candles(market.symbol, bars, seconds_per_bar),
+        }
 
     tv_resolution, seconds_per_bar = resolution_cfg
     bars = max(20, min(int(bars), 500))

@@ -48,14 +48,15 @@ export default function AddLiquidity({
   const { account, chainId, library } = useActiveWeb3React()
   const theme = useContext(ThemeContext)
   const { t } = useTranslation()
+  const weth = chainId ? WETH[chainId] : undefined
 
   const currencyA = useCurrency(currencyIdA)
   const currencyB = useCurrency(currencyIdB)
 
   const oneCurrencyIsWETH = Boolean(
-    chainId &&
-      ((currencyA && currencyEquals(currencyA, WETH[chainId])) ||
-        (currencyB && currencyEquals(currencyB, WETH[chainId])))
+    weth &&
+      ((currencyA && currencyEquals(currencyA, weth)) ||
+        (currencyB && currencyEquals(currencyB, weth)))
   )
 
   const toggleWalletModal = useWalletModalToggle() // toggle wallet when disconnected

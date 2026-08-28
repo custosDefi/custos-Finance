@@ -1,8 +1,15 @@
 require('@nomicfoundation/hardhat-toolbox');
 const path = require('path');
-require('dotenv').config({
-  path: process.env.CUSTOS_MARKETS_ENV || path.join(__dirname, '.env'),
-});
+const dotenv = require('dotenv');
+const marketEnvFile = process.env.CUSTOS_MARKETS_ENV || path.join(__dirname, '.env');
+dotenv.config({ path: marketEnvFile });
+
+// Keep market deployment settings and Pyth credentials separate. The Pyth
+// credential may live in the backend env file and must never be copied into
+// the repository or exposed to the frontend.
+if (process.env.PYTH_ENV_FILE) {
+  dotenv.config({ path: process.env.PYTH_ENV_FILE });
+}
 
 const { subtask } = require('hardhat/config');
 const { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD } = require('hardhat/builtin-tasks/task-names');

@@ -13,6 +13,7 @@ export function wrappedCurrencyAmount(
 }
 
 export function unwrappedToken(token: Token): Currency {
-  if (token.equals(WETH[token.chainId])) return ETHER
+  const weth = WETH[token.chainId]
+  if (weth && token.equals(weth)) return ETHER
   return token
 }
