@@ -9,10 +9,11 @@
 
 ## 仓库结构
 
-- `uniswapContract/`：合约与本地部署脚本
-- `v2-sdk/`：SDK 源码（前端通过 `file:../v2-sdk` 依赖）
-- `uniswap-interface/`：前端项目
-- `tokenlist/`：Token 列表与图标
+- `contracts/swap/`：Swap/CRP 合约与本地部署、测试脚本
+- `packages/swap-sdk/`：SDK 源码（前端通过本地 `file:` 依赖）
+- `apps/web/`：React 前端，包含原有 Swap、Spot、Perps、CRP 相关页面
+- `apps/api/`：Spot/Perps/Real Market 测试环境 API
+- `assets/tokenlist/`：Token 列表与图标
 - `scripts/`：仓库级自动化脚本
 
 ## 快速开始（一键）
@@ -74,7 +75,7 @@ node scripts/apply-branding.js scripts/branding.config.json
 
 - RPC: `http://127.0.0.1:7545`
 - Chain ID: `47805`（前端也兼容 `31337/1337`）
-- 前端环境变量文件：`uniswap-interface/.env`
+- 前端环境变量文件：`apps/web/.env`
 
 Hardhat 默认账号（部署账号）：
 - Address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
@@ -82,10 +83,10 @@ Hardhat 默认账号（部署账号）：
 
 ## 产物与关键文件
 
-- 本地部署结果：`uniswapContract/deployments/local/main-contracts.json`
+- 本地部署结果：`contracts/swap/deployments/local/main-contracts.json`
 - 一键脚本：`scripts/run-local-full.sh`
 - 地址回填脚本：`scripts/sync-local-config.js`
-- 交互验证脚本：`uniswapContract/scripts/verify-local-interactions.js`
+- 交互验证脚本：`contracts/swap/scripts/verify-local-interactions.js`
 
 ## 详细文档
 

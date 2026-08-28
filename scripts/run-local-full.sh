@@ -57,7 +57,7 @@ node scripts/apply-branding.js "$BRANDING_CONFIG"
 
 echo "[2/9] Ensure local hardhat node is running"
 if ! lsof -iTCP:7545 -sTCP:LISTEN -n -P >/dev/null 2>&1; then
-  cd "$ROOT_DIR/uniswapContract"
+  cd "$ROOT_DIR/contracts/swap"
   nohup npx hardhat node --hostname 127.0.0.1 --port 7545 >/tmp/custoswap-hardhat.log 2>&1 &
   echo $! >/tmp/custoswap-hardhat.pid
   echo "Started hardhat node, pid=$(cat /tmp/custoswap-hardhat.pid), log=/tmp/custoswap-hardhat.log"
@@ -71,12 +71,12 @@ if [[ "$START_BACKEND" -eq 1 ]]; then
   if lsof -iTCP:8001 -sTCP:LISTEN -n -P >/dev/null 2>&1; then
     echo "Port 8001 is already in use, reuse existing API"
   else
-    if [[ ! -x "$ROOT_DIR/backend/.venv/bin/python" ]]; then
-      echo "Missing backend virtualenv at $ROOT_DIR/backend/.venv"
-      echo "Create it with: python3 -m venv backend/.venv && backend/.venv/bin/pip install -r backend/requirements.txt"
+    if [[ ! -x "$ROOT_DIR/apps/api/.venv/bin/python" ]]; then
+      echo "Missing API virtualenv at $ROOT_DIR/apps/api/.venv"
+      echo "Create it with: python3 -m venv apps/api/.venv && apps/api/.venv/bin/pip install -r apps/api/requirements.txt"
       exit 1
     fi
-    cd "$ROOT_DIR/backend"
+    cd "$ROOT_DIR/apps/api"
     nohup .venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8001 >/tmp/custos-api.log 2>&1 &
     echo $! >/tmp/custos-api.pid
     echo "Started Custos API, pid=$(cat /tmp/custos-api.pid), log=/tmp/custos-api.log"
@@ -93,7 +93,7 @@ else
 fi
 
 echo "[4/9] Deploy local contracts"
-cd "$ROOT_DIR/uniswapContract"
+cd "$ROOT_DIR/contracts/swap"
 npx hardhat run --network local scripts/deploy-local-uniswap.js
 
 echo "[5/9] Sync addresses/config to SDK + interface"
@@ -104,19 +104,20 @@ node scripts/sync-local-config.js \
   --frontend-url http://127.0.0.1:3001
 
 echo "[6/9] Build local SDK"
-cd "$ROOT_DIR/v2-sdk"
-npm run build
+cd "$ROOT_DIR/packages/swap-sdk"
+yarn install --frozen-lockfile --ignore-scripts
+yarn build
 
 if [[ "$INSTALL_FRONTEND" -eq 1 ]]; then
   echo "[7/9] Install interface dependencies"
-  cd "$ROOT_DIR/uniswap-interface"
-  npm install --legacy-peer-deps
+  cd "$ROOT_DIR/apps/web"
+  yarn install --frozen-lockfile --ignore-scripts
 else
   echo "[7/9] Skip interface install"
 fi
 
 echo "[8/9] Verify on-chain interaction (swap test)"
-cd "$ROOT_DIR/uniswapContract"
+cd "$ROOT_DIR/contracts/swap"
 npx hardhat run --network local scripts/verify-local-interactions.js
 
 if [[ "$START_FRONTEND" -eq 1 ]]; then
@@ -124,8 +125,8 @@ if [[ "$START_FRONTEND" -eq 1 ]]; then
   if lsof -iTCP:3001 -sTCP:LISTEN -n -P >/dev/null 2>&1; then
     echo "Port 3001 is already in use, reuse existing frontend"
   else
-    cd "$ROOT_DIR/uniswap-interface"
-    nohup npm run start >/tmp/custoswap-frontend.log 2>&1 &
+    cd "$ROOT_DIR/apps/web"
+    nohup yarn start >/tmp/custoswap-frontend.log 2>&1 &
     echo $! >/tmp/custoswap-frontend.pid
   fi
 

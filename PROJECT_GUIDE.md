@@ -12,27 +12,27 @@
 
 ## 2. 子项目职责
 
-### 2.1 `uniswapContract/`
+### 2.1 `contracts/swap/`
 - Hardhat 工程
 - 本地部署脚本：`scripts/deploy-local-uniswap.js`
 - 交互验证脚本：`scripts/verify-local-interactions.js`
 - 部署输出：`deployments/local/main-contracts.json`
 
-### 2.2 `v2-sdk/`
+### 2.2 `packages/swap-sdk/`
 - 前端依赖的 SDK
 - 关键配置：
   - `src/constants.ts`（`FACTORY_ADDRESS`、`INIT_CODE_HASH`）
   - `src/entities/token.ts`（WETH 地址与代币信息）
 
-### 2.3 `uniswap-interface/`
+### 2.3 `apps/web/`
 - React 前端
-- 使用本地 SDK：`package.json` 中 `"custoswap-sdk": "file:../v2-sdk"`
+- 使用本地 SDK：`package.json` 中 `"custoswap-sdk": "file:../../packages/swap-sdk"`
 - 关键配置：
   - `src/constants/index.ts`（`ROUTER_ADDRESS`）
   - `src/constants/multicall/index.ts`
   - `.env`（`VITE_CHAIN_ID`、`VITE_NETWORK_URL`）
 
-### 2.4 `tokenlist/`
+### 2.4 `assets/tokenlist/`
 - Token list 与图标资源
 - 一键流程会自动生成用于本地调试的 tokenlist（并同步到前端 `public/tokenlist.json`）
 
@@ -111,7 +111,7 @@ node scripts/sync-local-config.js --branding-config scripts/branding.config.json
 
 ### 6.4 查看本地部署地址
 ```bash
-cat uniswapContract/deployments/local/main-contracts.json
+cat contracts/swap/deployments/local/main-contracts.json
 ```
 
 ## 7. 常见问题
@@ -122,11 +122,11 @@ cat uniswapContract/deployments/local/main-contracts.json
 
 ### 7.2 前端白屏或环境变量未生效
 原因：Vite 只会注入以 `VITE_` 开头的环境变量，或前端服务仍在使用旧构建产物。
-处理：确认 `uniswap-interface/.env` 中存在 `VITE_CHAIN_ID` 和 `VITE_NETWORK_URL`，重启 Vite 服务。
+处理：确认 `apps/web/.env` 中存在 `VITE_CHAIN_ID` 和 `VITE_NETWORK_URL`，重启 Vite 服务。
 
 ### 7.3 `npm install` 依赖冲突
-原因：老项目 peer 依赖版本冲突。  
-处理：使用 `npm install --legacy-peer-deps`（一键脚本已处理）。
+原因：前端依赖包含历史 peer 依赖约束。
+处理：使用 `yarn install --frozen-lockfile`（一键脚本和 Docker 构建已统一使用 Yarn）。
 
 ### 7.4 本地链端口冲突
 处理：

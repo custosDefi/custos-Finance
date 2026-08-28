@@ -12,4 +12,4 @@
 **/cache
 **/.DS_Store
 ui-screenshots
-uniswapContract
+contracts/swap

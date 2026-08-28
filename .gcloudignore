@@ -11,5 +11,5 @@
 **/artifacts
 **/cache
 **/.DS_Store
-uniswapContract/
+contracts/swap/
 ui-screenshots/

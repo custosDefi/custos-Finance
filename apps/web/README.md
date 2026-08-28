@@ -4,11 +4,11 @@ Custos Swap 的 React + Vite 前端，使用仓库内的 `custoswap-sdk` 与本�
 
 ## 开发
 
-在 `uniswap-interface/` 目录执行：
+在 `apps/web/` 目录执行：
 
 ```bash
-npm install
-npm run dev
+yarn install
+yarn dev
 ```
 
 默认访问地址：`http://127.0.0.1:3001`。
@@ -32,7 +32,7 @@ cd ..
 ## 验证
 
 ```bash
-npm run build
-npm test
-npm run lint
+yarn build
+yarn test
+yarn lint
 ```

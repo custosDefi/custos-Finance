@@ -1,5 +1,5 @@
 {
-  "name": "@uniswap/interface",
+  "name": "@custos/web",
   "description": "Custos Swap Interface",
   "homepage": ".",
   "private": true,
@@ -74,7 +74,7 @@
     "redux-localstorage-simple": "^2.3.1",
     "redux": "^5.0.1",
     "styled-components": "^5.3.11",
-    "custoswap-sdk": "file:../v2-sdk"
+    "custoswap-sdk": "file:../../packages/swap-sdk"
   },
   "devDependencies": {
     "@types/lodash.flatmap": "^4.5.7",

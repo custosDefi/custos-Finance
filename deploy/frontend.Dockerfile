@@ -2,14 +2,16 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /workspace
 
-COPY v2-sdk ./v2-sdk
-RUN npm ci --prefix v2-sdk --ignore-scripts \
-    && npm run build --prefix v2-sdk
+COPY packages/swap-sdk ./packages/swap-sdk
+RUN corepack enable \
+    && cd packages/swap-sdk \
+    && yarn install --frozen-lockfile --ignore-scripts \
+    && yarn build
 
-COPY uniswap-interface/package.json uniswap-interface/package-lock.json ./uniswap-interface/
-RUN npm ci --prefix uniswap-interface --legacy-peer-deps --ignore-scripts
+COPY apps/web/package.json apps/web/yarn.lock ./apps/web/
+RUN cd apps/web && yarn install --frozen-lockfile --ignore-scripts
 
-COPY uniswap-interface ./uniswap-interface
+COPY apps/web ./apps/web
 
 ARG VITE_API_BASE
 ARG VITE_CHAIN_ID=1
@@ -25,13 +27,13 @@ ENV VITE_API_BASE=${VITE_API_BASE} \
     VITE_GIWA_EXPLORER=${VITE_GIWA_EXPLORER} \
     VITE_GIWA_CHAIN_ID=${VITE_GIWA_CHAIN_ID}
 
-RUN npm run build --prefix uniswap-interface
+RUN cd apps/web && yarn build
 
 FROM nginx:1.27-alpine
 
 ARG NGINX_CONFIG=deploy/nginx.conf
 COPY ${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
-COPY --from=build /workspace/uniswap-interface/dist /usr/share/nginx/html
+COPY --from=build /workspace/apps/web/dist /usr/share/nginx/html
 RUN chmod -R a+rX /usr/share/nginx/html
 
 EXPOSE 8080

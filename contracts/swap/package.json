@@ -1,8 +1,9 @@
 {
-  "name": "desyn-core",
+  "name": "custos-swap-contracts",
   "version": "1.0.0",
-  "description": "<p align=center> <img width=\"128px\" src=\"https://desyn-labs.github.io/pebbles/images/pebbles-pad.256w.png\" alt=\"desyn pebbles logo\"/> </p>",
-  "main": "hardhat.config.js",
+  "private": true,
+  "description": "Custos Finance contract workspace for Swap, Spot, Perps and CRP test environments.",
+  "main": "hardhat.config.ts",
   "directories": {
     "test": "test"
   },
@@ -11,19 +12,17 @@
     "deploy:local": "hardhat deploy --network local --tags main",
     "deploy:kovan": "hardhat deploy --network kovan --tags main",
     "mock": "hardhat deploy --tags mock",
-    "test": "hardhat test --network local"
+    "test": "hardhat test --network local",
+    "deploy:swap:local": "hardhat run --network local scripts/deploy-local-uniswap.js",
+    "verify:swap:local": "hardhat run --network local scripts/verify-local-interactions.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/desyn-labs/desyn-core.git"
-  },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "custos",
+    "defi",
+    "swap",
+    "hardhat"
+  ],
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/desyn-labs/desyn-core/issues"
-  },
-  "homepage": "https://github.com/desyn-labs/desyn-core#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^2.5.0",
     "ethers": "^5.0.31",

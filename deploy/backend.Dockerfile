@@ -6,11 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY backend/requirements.txt ./requirements.txt
+COPY apps/api/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/*.py ./
-COPY backend/*.json ./
+COPY apps/api/*.py ./
+COPY apps/api/*.json ./
 
 EXPOSE 8080
 

@@ -9,7 +9,8 @@
     "dist"
   ],
   "keywords": [
-    "uniswap",
+    "custos",
+    "swap",
     "ethereum"
   ],
   "module": "dist/index.mjs",

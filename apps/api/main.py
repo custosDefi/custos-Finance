@@ -21,7 +21,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-# Load backend/.env BEFORE importing perp_market.
+# Load apps/api/.env BEFORE importing perp_market.
 # perp_market reads its Pyth configuration at module-import time.
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")

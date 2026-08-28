@@ -79,8 +79,6 @@ const MenuItem = styled(ExternalLink)`
   }
 `
 
-// const CODE_LINK = 'https://github.com/KodamaSakuno/uniswap-interface'
-
 export default function I18nSwitch() {
   // const { account } = useActiveWeb3React()
 

@@ -31,7 +31,7 @@ function replaceSingle(file, pattern, replacement, label) {
   writeFile(file, next)
 }
 
-const deployFile = path.resolve(root, 'uniswapContract/deployments/local/main-contracts.json')
+const deployFile = path.resolve(root, 'contracts/swap/deployments/local/main-contracts.json')
 if (!fs.existsSync(deployFile)) {
   console.error(`Missing deployment file: ${deployFile}`)
   process.exit(1)
@@ -59,55 +59,55 @@ if (!contracts || !contracts.factory || !contracts.router || !contracts.multical
 }
 
 replaceSingle(
-  path.resolve(root, 'v2-sdk/src/constants.ts'),
+  path.resolve(root, 'packages/swap-sdk/src/constants.ts'),
   /export const FACTORY_ADDRESS = '0x[0-9a-fA-F]+'/,
   `export const FACTORY_ADDRESS = '${contracts.factory}'`,
   'FACTORY_ADDRESS'
 )
 
 replaceSingle(
-  path.resolve(root, 'v2-sdk/src/constants.ts'),
+  path.resolve(root, 'packages/swap-sdk/src/constants.ts'),
   /export const INIT_CODE_HASH = '0x[0-9a-fA-F]+'/,
   `export const INIT_CODE_HASH = '${initCodeHash}'`,
   'INIT_CODE_HASH'
 )
 
 replaceSingle(
-  path.resolve(root, 'v2-sdk/src/entities/token.ts'),
+  path.resolve(root, 'packages/swap-sdk/src/entities/token.ts'),
   /\[ChainId\.REI\]: new Token\(ChainId\.REI, '0x[0-9a-fA-F]+'/,
   `[ChainId.REI]: new Token(ChainId.REI, '${contracts.weth}'`,
   'WETH ETH'
 )
 
 replaceSingle(
-  path.resolve(root, 'v2-sdk/src/entities/token.ts'),
+  path.resolve(root, 'packages/swap-sdk/src/entities/token.ts'),
   /\[ChainId\.REITEST\]: new Token\(ChainId\.REITEST, '0x[0-9a-fA-F]+'/,
   `[ChainId.REITEST]: new Token(ChainId.REITEST, '${contracts.weth}'`,
   'WETH REITEST'
 )
 
 replaceSingle(
-  path.resolve(root, 'uniswap-interface/src/constants/index.ts'),
+  path.resolve(root, 'apps/web/src/constants/index.ts'),
   /export const ROUTER_ADDRESS = '0x[0-9a-fA-F]+'/,
   `export const ROUTER_ADDRESS = '${contracts.router}'`,
   'ROUTER_ADDRESS'
 )
 
 replaceSingle(
-  path.resolve(root, 'uniswap-interface/src/constants/multicall/index.ts'),
+  path.resolve(root, 'apps/web/src/constants/multicall/index.ts'),
   /\[ChainId\.REI\]: '0x[0-9a-fA-F]+'/,
   `[ChainId.REI]: '${contracts.multicall}'`,
   'MULTICALL REI'
 )
 
 replaceSingle(
-  path.resolve(root, 'uniswap-interface/src/constants/multicall/index.ts'),
+  path.resolve(root, 'apps/web/src/constants/multicall/index.ts'),
   /\[ChainId\.REITEST\]: '0x[0-9a-fA-F]+'/,
   `[ChainId.REITEST]: '${contracts.multicall}'`,
   'MULTICALL REITEST'
 )
 
-const envFile = path.resolve(root, 'uniswap-interface/.env')
+const envFile = path.resolve(root, 'apps/web/.env')
 const existingEnv = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : ''
 const preservedEnv = existingEnv
   .split(/\r?\n/)
@@ -170,8 +170,8 @@ const tokenlist = {
   }
 }
 
-writeFile(path.resolve(root, 'tokenlist/tokenlist.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
-writeFile(path.resolve(root, 'uniswap-interface/public/tokenlist.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
-writeFile(path.resolve(root, 'uniswap-interface/src/constants/default-token-list.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
+writeFile(path.resolve(root, 'assets/tokenlist/tokenlist.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
+writeFile(path.resolve(root, 'apps/web/public/tokenlist.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
+writeFile(path.resolve(root, 'apps/web/src/constants/default-token-list.json'), `${JSON.stringify(tokenlist, null, 2)}\n`)
 
 console.log('Sync complete.')

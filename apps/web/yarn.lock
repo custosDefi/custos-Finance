@@ -2971,9 +2971,9 @@ csstype@^3.2.2:
   resolved "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz"
   integrity sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==
 
-"custoswap-sdk@file:../v2-sdk":
+"custoswap-sdk@file:../../packages/swap-sdk":
   version "1.0.4"
-  resolved "file:../v2-sdk"
+  resolved "file:../../packages/swap-sdk"
   dependencies:
     big.js "^5.2.2"
     decimal.js-light "^2.5.0"
