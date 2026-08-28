@@ -2,10 +2,6 @@
 
 ## 1. Permissionless Launch
 
-### 当前实现与目标形态
-
-目标形态是用户通过钱包调用经过核验的外部 Token Factory，拿到 Token 地址和交易哈希，再由 Market 展示。当前目标 L2 尚未找到满足安全门槛的外部 Factory，因此第一阶段只开放资料登记和已有 Token/Pool 接入；不得把登记结果显示成 Token 已部署。
-
 ### 表单
 
 - Token name
@@ -31,8 +27,6 @@
 第一阶段结果是“登记已创建”，不是“Token 已部署”。如果用户已有 Token/Pool，可以把地址附加到 listing；如果没有，必须等待后续合约适配器。
 
 ## 2. Curated RWA Launch
-
-Curated RWA Launch 第一阶段是白名单/人工审核的项目资料入口，不自建 RWA 发行、托管、赎回或资产所有权证明合约。审核通过只改变展示状态，不产生链上资产。
 
 ### 必填资料
 
