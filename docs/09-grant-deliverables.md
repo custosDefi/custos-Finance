@@ -13,6 +13,12 @@
 - [x] 本地一键运行脚本。
 - [x] 前端、SDK、后端和 V2 合约测试记录。
 
+## 当前未交付能力
+
+- [ ] 当前目标 L2 上真实的 permissionless Token Factory 调用。
+- [ ] Token 创建交易哈希、Token 地址自动回写 Market 的链上适配器。
+- [ ] RWA 的链上发行、托管、赎回或现实资产所有权证明。
+
 ## 已执行验证
 
 ```text
@@ -39,7 +45,7 @@ Playwright 页面验收已在本地 API、前端和钱包链环境启动后完�
 
 ## 后续路线
 
-1. 由 L2/外部协议方提供可核验的 Token Factory/Claim/LP Lock/Sale 地址、ABI 和安全材料。
+1. 由 L2/外部协议方提供可核验的 Token Factory/Claim/LP Lock/Sale 地址、ABI 和安全材料；社区仓库仅作为参考，不能直接当作依赖。
 2. 建立安全、许可证和权限审查；通过后再新增适配器任务。
 3. 为 RWA 项目接入真正的身份、审核和审计日志，可评估 GIWA Dojang/EAS 的只读证明能力。
 4. 在有明确流动性和合规边界后，再评估更复杂的发行机制。

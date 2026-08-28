@@ -7,7 +7,7 @@ Custos Finance 是面向 L2 生态的轻资产产品，当前主线由四个表�
 - `RWA Launch`：精选 RWA 项目的白名单/人工审核入口。
 - `Market`：统一展示社区 Token、精选项目和 RWA 资产，并在 Token 与 Pool 均已提供时进入 Swap。
 
-Custos 不自建复杂 Launchpad、Bonding Curve、Vesting、LP Lock、RWA Registry、托管或做市系统。Launch 第一阶段只保存项目资料和已有链上地址，不代表 Custos 铸币、审计、托管或保证流动性。
+Custos 不自建复杂 Launchpad、Bonding Curve、Vesting、LP Lock、RWA Registry、托管或做市系统。当前没有通过核验的外部 Token Factory，Launch 第一阶段只保存项目资料和已有链上地址，不代表 Custos 铸币、审计、托管或保证流动性。
 
 ## 仓库结构
 
