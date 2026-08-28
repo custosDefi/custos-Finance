@@ -4,5 +4,4 @@ node_modules
 .DS_Store
 artifacts
 cache
-package-lock.json
 yarn-error.log

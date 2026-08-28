@@ -6,11 +6,12 @@ REGION="${CLOUD_RUN_REGION:-asia-east2}"
 REPOSITORY="${ARTIFACT_REPOSITORY:-custos}"
 API_SERVICE="${CLOUD_RUN_API_SERVICE:-custos-api}"
 WEB_SERVICE="${CLOUD_RUN_WEB_SERVICE:-custos-web}"
-VITE_CHAIN_ID="${VITE_CHAIN_ID:-1}"
-VITE_NETWORK_URL="${VITE_NETWORK_URL:-https://cloudflare-eth.com}"
-VITE_GIWA_RPC="${VITE_GIWA_RPC:-https://sepolia-rpc.giwa.io}"
-VITE_GIWA_EXPLORER="${VITE_GIWA_EXPLORER:-https://sepolia-explorer.giwa.io}"
-VITE_GIWA_CHAIN_ID="${VITE_GIWA_CHAIN_ID:-91342}"
+CHAIN_ID="${CHAIN_ID:-91342}"
+NETWORK_NAME="${NETWORK_NAME:-Target L2}"
+RPC_URL="${RPC_URL:-https://sepolia-rpc.giwa.io}"
+EXPLORER_URL="${EXPLORER_URL:-https://sepolia-explorer.giwa.io}"
+VITE_CHAIN_ID="${VITE_CHAIN_ID:-$CHAIN_ID}"
+VITE_NETWORK_URL="${VITE_NETWORK_URL:-$RPC_URL}"
 
 if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "(unset)" ]]; then
   echo "Google Cloud project is not configured. Set GOOGLE_CLOUD_PROJECT first." >&2
@@ -53,13 +54,13 @@ API_URL="$(gcloud run deploy "$API_SERVICE" \
   --cpu=1 \
   --max=3 \
   --timeout=3600 \
-  --set-env-vars="GIWA_RPC_URL=https://sepolia-rpc.giwa.io,GIWA_FLASHBLOCKS_RPC_URL=https://sepolia-rpc-flashblocks.giwa.io,GIWA_EXPLORER_URL=https://sepolia-explorer.giwa.io,DATABASE_PATH=/tmp/rwa_exchange.db,BETA_DATABASE_PATH=/tmp/kelq_beta.db" \
+  --set-env-vars="CHAIN_ID=$CHAIN_ID,NETWORK_NAME=$NETWORK_NAME,RPC_URL=$RPC_URL,EXPLORER_URL=$EXPLORER_URL,DATABASE_PATH=/tmp/custos_asset_hub.db" \
   --format='value(status.url)')"
 
 echo "Building web image..."
 gcloud builds submit . \
   --config=deploy/cloudbuild.frontend.yaml \
-  --substitutions="_IMAGE=$WEB_IMAGE,_VITE_API_BASE=$API_URL,_VITE_CHAIN_ID=$VITE_CHAIN_ID,_VITE_NETWORK_URL=$VITE_NETWORK_URL,_VITE_GIWA_RPC=$VITE_GIWA_RPC,_VITE_GIWA_EXPLORER=$VITE_GIWA_EXPLORER,_VITE_GIWA_CHAIN_ID=$VITE_GIWA_CHAIN_ID"
+  --substitutions="_IMAGE=$WEB_IMAGE,_VITE_API_BASE=$API_URL,_VITE_CHAIN_ID=$VITE_CHAIN_ID,_VITE_NETWORK_URL=$VITE_NETWORK_URL"
 
 echo "Deploying web..."
 WEB_URL="$(gcloud run deploy "$WEB_SERVICE" \

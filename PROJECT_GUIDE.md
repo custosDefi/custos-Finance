@@ -1,146 +1,104 @@
-# 项目完整说明（Project Guide）
+# Custos Finance 项目说明
 
-## 1. 目标
+## 1. 当前目标
 
-本项目用于本地完整验证一个可交互 DEX 系统，覆盖：
-- 本地链启动
-- 核心合约部署
-- SDK 地址同步
-- 前端配置同步
-- 前后端交互验证（含链上 swap）
-- 品牌文案可配置替换
+Custos 为目标 L2 提供一套可演示的资产入口：
 
-## 2. 子项目职责
+```text
+项目资料 → Launch → Market → 项目方提供 Token/Pool → Swap
+```
+
+产品分为两个 Launch：
+
+- `Launch`：permissionless 普通 Token 资料登记，显示为未验证社区资产。
+- `RWA Launch`：精选 RWA 项目提交资料，进入白名单/人工审核流程。
+
+`Market` 只负责资产发现、资料展示和状态说明；只有已有 Token 和 Pool 地址的 listing 才显示进入现有 Swap 的入口。
+
+## 2. 仓库职责
 
 ### 2.1 `uniswapContract/`
-- Hardhat 工程
-- 本地部署脚本：`scripts/deploy-local-uniswap.js`
-- 交互验证脚本：`scripts/verify-local-interactions.js`
-- 部署输出：`deployments/local/main-contracts.json`
+
+- Hardhat V2-compatible Swap 工程。
+- `contracts/factory.sol`、`router.sol`、`muticall.sol` 保留交易基础设施。
+- `contracts/MockERC20.sol` 只用于本地测试。
+- `scripts/deploy-local-uniswap.js` 部署本地合约。
+- `scripts/verify-local-interactions.js` 执行本地 Swap 验证。
 
 ### 2.2 `v2-sdk/`
-- 前端依赖的 SDK
-- 关键配置：
-  - `src/constants.ts`（`FACTORY_ADDRESS`、`INIT_CODE_HASH`）
-  - `src/entities/token.ts`（WETH 地址与代币信息）
+
+前端使用的 Swap SDK。部署后由 `scripts/sync-local-config.js` 回填 Factory、Init Code Hash、WETH 和 Router 相关配置。
 
 ### 2.3 `uniswap-interface/`
-- React 前端
-- 使用本地 SDK：`package.json` 中 `"custoswap-sdk": "file:../v2-sdk"`
-- 关键配置：
-  - `src/constants/index.ts`（`ROUTER_ADDRESS`）
-  - `src/constants/multicall/index.ts`
-  - `.env`（`VITE_CHAIN_ID`、`VITE_NETWORK_URL`）
 
-### 2.4 `tokenlist/`
-- Token list 与图标资源
-- 一键流程会自动生成用于本地调试的 tokenlist（并同步到前端 `public/tokenlist.json`）
+React 前端，主入口为：
 
-### 2.5 `scripts/`
-- `branding.config.json`：品牌替换配置
-- `apply-branding.js`：按配置批量替换文案
-- `sync-local-config.js`：将部署结果自动回填到 SDK/前端/tokenlist
-- `run-local-full.sh`：一键全流程脚本
+- `/defi`：Swap
+- `/defi/market`：Market
+- `/defi/launch`：Permissionless Launch
+- `/defi/rwa-launch`：Curated RWA Launch
 
-## 3. 一键全流程
+Pool、Add、Remove 和 Find 页面作为 V2 维护入口保留，但不属于主产品叙事。
+
+### 2.4 `backend/`
+
+FastAPI Custos Asset Hub API。SQLite 只保存 listing 元数据、审核状态和 Token/Pool/文件引用，不保存私钥，不代签名，不托管资金，不执行铸币或交易结算。
+
+默认 API：`http://127.0.0.1:8001`
+
+关键接口：
+
+- `GET /api/health`
+- `GET /api/config`
+- `GET /api/overview`
+- `GET /api/assets`
+- `POST /api/launch/permissionless`
+- `POST /api/launch/curated-rwa`
+- `POST /api/assets/{id}/chain`（需要 `X-Admin-Key`）
+- `POST /api/assets/{id}/review`（需要 `X-Admin-Key`）
+
+### 2.5 `docs/`
+
+从 [`docs/README.md`](docs/README.md) 开始阅读产品方案、任务拆解、合约复用研究、清理计划和 Grant 交付清单。
+
+## 3. 本地完整流程
 
 ```bash
 ./scripts/run-local-full.sh
 ```
 
-流程分解：
-1. 读取品牌配置并执行替换
-2. 检查 `7545` 端口，未启动则拉起 Hardhat 节点
-3. 部署本地合约
-4. 回填地址与本地网络配置
-5. 构建 SDK
-6. 安装前端依赖
-7. 执行链上 swap 验证
-8. 启动前端服务
+流程包括：
 
-## 4. 品牌配置机制
+1. 应用品牌配置。
+2. 启动或复用 `127.0.0.1:7545` Hardhat 节点。
+3. 部署 V2 Factory、Router、WETH、Multicall 和测试 Token。
+4. 同步 SDK、前端地址和 TokenList。
+5. 构建 SDK。
+6. 执行链上加流动性与 Swap 验证。
+7. 启动 Asset Hub API 和前端。
 
-### 4.1 配置文件
-- 文件：`scripts/branding.config.json`
-- 核心字段：
-  - `brandName`
-  - `brandShort`
-  - `lpTokenName`
-  - `lpTokenSymbol`
-  - `replacements[]`
-  - `files[]`
+API 本地数据库默认为 `backend/custos_asset_hub.db`。数据库和 `.env` 都被 Git 忽略；部署环境请显式设置 `DATABASE_PATH`。
 
-### 4.2 使用方式
+## 4. 网络配置
+
+本地开发网络：
+
+- RPC：`http://127.0.0.1:7545`
+- Chain ID：`47805`
+- 前端变量：`VITE_CHAIN_ID`、`VITE_NETWORK_URL`
+
+生产/测试网部署使用通用变量：
+
+- API：`CHAIN_ID`、`NETWORK_NAME`、`RPC_URL`、`EXPLORER_URL`
+- 前端：`VITE_CHAIN_ID`、`VITE_NETWORK_URL`
+
+不要把本地 Hardhat 私钥用于真实网络，也不要提交任何 `.env`、数据库或部署密钥。
+
+## 5. 验收命令
 
 ```bash
-node scripts/apply-branding.js scripts/branding.config.json
+npm run build --prefix uniswap-interface
+npm test --prefix v2-sdk
+npm test --prefix uniswapContract
+python -m py_compile backend/main.py
 ```
-
-建议：
-- 先改配置，再跑 `run-local-full.sh`，确保文案与部署配置同步。
-
-## 5. 本地网络与钱包
-
-推荐 MetaMask 新增网络：
-- Network Name: `Custos Swap Local`
-- RPC URL: `http://127.0.0.1:7545`
-- Chain ID: `47805`
-- Currency Symbol: `ETH`
-
-兼容说明：
-- 前端注入钱包支持链：`1,3,4,5,42,1337,31337,47805,12357`
-
-## 6. 常用命令
-
-### 6.1 全流程
-```bash
-./scripts/run-local-full.sh
-```
-
-### 6.2 仅部署+回填+验证（不装依赖、不起前端）
-```bash
-./scripts/run-local-full.sh --skip-install --no-start-frontend
-```
-
-### 6.3 仅同步配置（部署后）
-```bash
-node scripts/sync-local-config.js --branding-config scripts/branding.config.json --rpc-url http://127.0.0.1:7545
-```
-
-本地调试时可额外传入 `--frontend-url http://127.0.0.1:3001`，让 TokenList 使用本地 Custos 图标；不传时使用配置中的相对图标路径。
-
-### 6.4 查看本地部署地址
-```bash
-cat uniswapContract/deployments/local/main-contracts.json
-```
-
-## 7. 常见问题
-
-### 7.1 提示 `Please connect to the appropriate network`
-原因：钱包链 ID 不在前端支持列表内，或当前网络不是本地 RPC。  
-处理：切换/新增到 `http://127.0.0.1:7545` + chainId `47805`。
-
-### 7.2 前端白屏或环境变量未生效
-原因：Vite 只会注入以 `VITE_` 开头的环境变量，或前端服务仍在使用旧构建产物。
-处理：确认 `uniswap-interface/.env` 中存在 `VITE_CHAIN_ID` 和 `VITE_NETWORK_URL`，重启 Vite 服务。
-
-### 7.3 `npm install` 依赖冲突
-原因：老项目 peer 依赖版本冲突。  
-处理：使用 `npm install --legacy-peer-deps`（一键脚本已处理）。
-
-### 7.4 本地链端口冲突
-处理：
-- 结束占用 7545 的进程，或
-- 复用当前进程并确保 chainId 与部署网络一致。
-
-## 8. 安全说明
-
-当前私钥和网络均为本地测试用途，仅用于开发联调。  
-不要将本地测试私钥用于真实网络。
-
-## 9. 后续建议
-
-- 如需稳定 CI，可增加：
-  - `make local-up` / `make local-down`
-  - Playwright 端到端自动化
-  - 对 `sync-local-config.js` 增加更多可配置项（token 符号、logo URI、RPC/chain 多环境）

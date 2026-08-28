@@ -1,21 +1,26 @@
-# Custos Swap Monorepo
+# Custos Finance
 
-这是一个本地可完整跑通的 DEX 项目仓库，包含：
-- 合约工程（Hardhat）
-- SDK（`custoswap-sdk` 本地源码版）
-- 前端（React）
-- TokenList
-- 一键全流程脚本（改名 + 本地链 + 部署 + 回填 + 验证 + 启动前端）
+Custos Finance 是面向 L2 生态的轻资产产品，当前主线由四个表面组成：
+
+- `Swap`：基于 Uniswap V2-compatible Factory、Router、Pair 和 SDK 的现货兑换。
+- `Launch`：任何人都可以提交普通 Token 的资料登记。
+- `RWA Launch`：精选 RWA 项目的白名单/人工审核入口。
+- `Market`：统一展示社区 Token、精选项目和 RWA 资产，并在 Token 与 Pool 均已提供时进入 Swap。
+
+Custos 不自建复杂 Launchpad、Bonding Curve、Vesting、LP Lock、RWA Registry、托管或做市系统。Launch 第一阶段只保存项目资料和已有链上地址，不代表 Custos 铸币、审计、托管或保证流动性。
 
 ## 仓库结构
 
-- `uniswapContract/`：合约与本地部署脚本
-- `v2-sdk/`：SDK 源码（前端通过 `file:../v2-sdk` 依赖）
-- `uniswap-interface/`：前端项目
-- `tokenlist/`：Token 列表与图标
-- `scripts/`：仓库级自动化脚本
+- `uniswapContract/`：V2-compatible Swap 合约、本地部署和交互测试
+- `v2-sdk/`：前端使用的 Swap SDK
+- `uniswap-interface/`：Swap、Market 和两个 Launch 页面
+- `backend/`：Custos Asset Hub 元数据 API
+- `tokenlist/`：本地 TokenList 与图标资源
+- `docs/`：产品方案、任务拆解、架构和 Grant 交付文档
+- `deploy/`：Cloud Run 与 VM 部署文件
+- `scripts/`：本地部署、地址同步和品牌脚本
 
-## 快速开始（一键）
+## 本地启动
 
 在仓库根目录执行：
 
@@ -23,70 +28,33 @@
 ./scripts/run-local-full.sh
 ```
 
-执行内容：
-1. 应用品牌配置
-2. 启动或复用本地 Hardhat 节点（`127.0.0.1:7545`）
-3. 部署本地 Factory/Router/WETH/Multicall/测试代币
-4. 自动回填 SDK 与前端地址配置
-5. 构建 SDK
-6. 安装前端依赖
-7. 执行链上 Swap 验证
-8. 启动 Custos API（`http://127.0.0.1:8001`）
-9. 启动前端（`http://127.0.0.1:3001`）
+脚本会启动本地 Hardhat 节点，部署 V2 Factory/Router/WETH/测试 Token，回填 SDK 和前端地址，执行 Swap 验证，并启动：
 
-## 常用参数
+- Asset Hub API：`http://127.0.0.1:8001`
+- 前端：`http://127.0.0.1:3001`
+
+常用参数：
 
 ```bash
-# 跳过前端依赖安装（已装过时更快）
 ./scripts/run-local-full.sh --skip-install
-
-# 跳过启动前端（只做部署和验证）
 ./scripts/run-local-full.sh --no-start-frontend
-
-# 只启动前端/合约流程，不启动已在运行的 API
 ./scripts/run-local-full.sh --no-start-backend
-
-# 手动同步本地前端 token logo（可选）
-node scripts/sync-local-config.js \
-  --branding-config scripts/branding.config.json \
-  --rpc-url http://127.0.0.1:7545 \
-  --frontend-url http://127.0.0.1:3001
-
-# 指定品牌配置文件
-./scripts/run-local-full.sh --branding-config scripts/branding.config.json
 ```
 
-## 品牌配置
-
-编辑：`scripts/branding.config.json`
-
-然后执行：
+首次启动 API 前，如本地虚拟环境不存在：
 
 ```bash
-node scripts/apply-branding.js scripts/branding.config.json
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements.txt
 ```
 
-说明：
-- 默认品牌为 `Custos Swap/Custos`
-- `custoswap-sdk` 是前端使用的本地 SDK 包名
+## 验证
 
-## 本地网络信息
+```bash
+npm run build --prefix uniswap-interface
+npm test --prefix v2-sdk
+npm test --prefix uniswapContract
+python -m py_compile backend/main.py
+```
 
-- RPC: `http://127.0.0.1:7545`
-- Chain ID: `47805`（前端也兼容 `31337/1337`）
-- 前端环境变量文件：`uniswap-interface/.env`
-
-Hardhat 默认账号（部署账号）：
-- Address: `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`
-- Private Key: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-
-## 产物与关键文件
-
-- 本地部署结果：`uniswapContract/deployments/local/main-contracts.json`
-- 一键脚本：`scripts/run-local-full.sh`
-- 地址回填脚本：`scripts/sync-local-config.js`
-- 交互验证脚本：`uniswapContract/scripts/verify-local-interactions.js`
-
-## 详细文档
-
-完整说明见：`PROJECT_GUIDE.md`
+更完整的边界和后续合约复用要求见 [`docs/README.md`](docs/README.md)。

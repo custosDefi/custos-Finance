@@ -8,31 +8,34 @@ import {
   FileCheck2,
   Globe2,
   Layers3,
-  Lock,
   Menu,
   ShieldCheck,
+  UploadCloud,
   Wallet,
   X,
 } from 'lucide-react'
 
 const MARKET_CARDS = [
   {
-    symbol: 'XAU / USD',
-    title: 'Gold',
-    category: 'Precious metal · Pyth reference',
-    image: '/assets/markets/gold.png',
-  },
-  {
-    symbol: 'XAG / USD',
-    title: 'Silver',
-    category: 'Precious metal · Pyth reference',
+    symbol: 'COMMUNITY',
+    title: 'Community tokens',
+    category: 'Permissionless listing · unverified',
     image: '/assets/markets/silver.png',
+    route: '/defi/market',
   },
   {
-    symbol: 'WTI / USD',
-    title: 'WTI Crude Oil',
-    category: 'Energy · Pyth reference',
+    symbol: 'CURATED RWA',
+    title: 'Selected projects',
+    category: 'White-list review · information first',
+    image: '/assets/markets/gold.png',
+    route: '/defi/market',
+  },
+  {
+    symbol: 'SWAP',
+    title: 'Listed pools',
+    category: 'Existing Token + Pool required',
     image: '/assets/markets/oil.png',
+    route: '/defi',
   },
 ]
 
@@ -40,26 +43,26 @@ const STEPS = [
   {
     number: '01',
     icon: Wallet,
-    title: 'Connect GIWA',
-    body: 'Connect an EVM wallet on GIWA Sepolia and keep test ETH for gas.',
+    title: 'Connect a wallet',
+    body: 'Use an EVM wallet on the target L2. Browsing Market does not require a wallet.',
   },
   {
     number: '02',
-    icon: CircleDollarSign,
-    title: 'Claim shared tUSDC',
-    body: 'Use the Custos Finance testnet faucet. The same tUSDC works across Spot and Perpetuals.',
+    icon: UploadCloud,
+    title: 'Submit an asset',
+    body: 'List a community token openly, or send a complete RWA project file for review.',
   },
   {
     number: '03',
     icon: FileCheck2,
-    title: 'Explore real markets',
-    body: 'Follow Pyth reference prices and OHLC candles for Gold, Silver and WTI.',
+    title: 'Make the status clear',
+    body: 'Market shows whether a listing is community, under review, curated or connected to a pool.',
   },
   {
     number: '04',
     icon: Layers3,
-    title: 'Trade, LP or open Perps',
-    body: 'Swap synthetic spot assets, provide tUSDC liquidity, or trade perpetuals.',
+    title: 'Trade through Swap',
+    body: 'When a project provides a Token and Pool, users can enter the existing V2 Swap.',
   },
 ] as const
 
@@ -85,7 +88,7 @@ function LandingHeader({ onEnter }: { onEnter: () => void }) {
   const links = [
     ['JOURNEY', 'journey'],
     ['BENEFITS', 'benefits'],
-    ['MARKETS', 'markets'],
+    ['MARKET', 'markets'],
   ] as const
 
   return (
@@ -95,15 +98,14 @@ function LandingHeader({ onEnter }: { onEnter: () => void }) {
           <LogoMark />
           <span>
             <strong>Custos Finance</strong>
-            <small>RWA · SPOT · PERPETUALS</small>
+            <small>SWAP · LAUNCH · MARKET</small>
           </span>
         </a>
 
         <nav className="landing-nav" aria-label="Landing page navigation">
           {links.map(([label, id]) => (
-            <a key={id} href={`#${id}`} onClick={(event) => scrollToSection(event, id)}>{label}</a>
+            <a key={id} href={'#' + id} onClick={(event) => scrollToSection(event, id)}>{label}</a>
           ))}
-          <a href="#season-cta" onClick={(event) => scrollToSection(event, 'season-cta')}>SEASON 1</a>
         </nav>
 
         <div className="landing-header-actions">
@@ -123,9 +125,8 @@ function LandingHeader({ onEnter }: { onEnter: () => void }) {
       {open ? (
         <nav className="landing-mobile-nav" aria-label="Mobile landing navigation">
           {links.map(([label, id]) => (
-            <a key={id} href={`#${id}`} onClick={(event) => { setOpen(false); scrollToSection(event, id) }}>{label}</a>
+            <a key={id} href={'#' + id} onClick={(event) => { setOpen(false); scrollToSection(event, id) }}>{label}</a>
           ))}
-          <a href="#season-cta" onClick={(event) => { setOpen(false); scrollToSection(event, 'season-cta') }}>SEASON 1</a>
           <button type="button" onClick={() => { setOpen(false); onEnter() }}>ENTER CUSTOS <ArrowUpRight size={14} /></button>
         </nav>
       ) : null}
@@ -134,9 +135,10 @@ function LandingHeader({ onEnter }: { onEnter: () => void }) {
 }
 
 export default function CustosLandingPage() {
-  const goToMarkets = () => { window.location.hash = '/defi?tab=markets' }
-  const goToSeason = () => { window.location.hash = '/defi?tab=season' }
-  const goToTerminal = () => { window.location.hash = '/defi' }
+  const goToMarket = () => { window.location.hash = '/defi/market' }
+  const goToLaunch = () => { window.location.hash = '/defi/launch' }
+  const goToRwaLaunch = () => { window.location.hash = '/defi/rwa-launch' }
+  const goToSwap = () => { window.location.hash = '/defi' }
 
   return (
     <div className="landing-page">
@@ -145,19 +147,19 @@ export default function CustosLandingPage() {
           <img src="/assets/hero-field.png" alt="" />
           <div className="landing-hero-wash" />
         </div>
-        <LandingHeader onEnter={goToTerminal} />
+        <LandingHeader onEnter={goToSwap} />
 
         <div className="landing-hero-content">
-          <p className="landing-kicker">REAL MARKETS · GIWA SEPOLIA</p>
+          <p className="landing-kicker">ASSETS · L2 · OPEN ACCESS</p>
           <h1>
-            <span>Real markets, moving onchain.</span>
-            <em>Gold. Silver. Oil. One unified terminal.</em>
+            <span>Bring assets onchain.</span>
+            <em>Launch clearly. Discover carefully. Swap when liquidity is ready.</em>
           </h1>
           <div className="landing-hero-actions">
-            <button type="button" className="landing-primary-button" onClick={goToMarkets}>Explore live markets <ArrowUpRight size={15} /></button>
-            <button type="button" className="landing-secondary-button" onClick={goToSeason}>Join Season 1 <ArrowUpRight size={14} /></button>
+            <button type="button" className="landing-primary-button" onClick={goToMarket}>Explore Market <ArrowUpRight size={15} /></button>
+            <button type="button" className="landing-secondary-button" onClick={goToLaunch}>Launch a token <ArrowUpRight size={14} /></button>
           </div>
-          <p className="landing-disclaimer"><Lock size={12} /> PUBLIC TESTNET · SYNTHETIC ASSETS · NO CASH VALUE</p>
+          <p className="landing-disclaimer"><ShieldCheck size={12} /> METADATA-FIRST · NO CUSTODY · NO GUARANTEED VALUE</p>
         </div>
       </section>
 
@@ -165,9 +167,9 @@ export default function CustosLandingPage() {
         <div className="landing-section-heading landing-flow-heading">
           <div>
             <p className="landing-kicker">THE CUSTOS FLOW</p>
-            <h2>One wallet. <span>Three market layers.</span></h2>
+            <h2>One directory. <span>Two launch tracks.</span></h2>
           </div>
-          <p>Connect once, claim shared tUSDC, follow Pyth real-world reference prices, then use Spot, Liquidity and Perpetuals from one GIWA Sepolia account.</p>
+          <p>Custos separates open community listings from curated RWA submissions, then connects assets to one existing Swap surface when projects provide liquidity.</p>
         </div>
         <div className="landing-step-grid">
           {STEPS.map(({ number, icon: Icon, title, body }) => (
@@ -183,20 +185,21 @@ export default function CustosLandingPage() {
       <section id="benefits" className="landing-section landing-benefits-section">
         <div className="landing-feature-grid">
           <article className="landing-feature-card">
-            <div className="landing-feature-label"><ShieldCheck size={16} /> PYTH-ANCHORED</div>
+            <div className="landing-feature-label"><BarChart3 size={16} /> PERMISSIONLESS</div>
             <div className="landing-feature-copy">
-              <h2>Every market begins with a real reference.</h2>
-              <p>Gold, Silver and WTI use Pyth reference data for live market context and historical OHLC candles, while the GIWA contracts remain transparent testnet instruments.</p>
-              <button type="button" className="landing-outline-button" onClick={goToMarkets}>Explore real markets <ArrowUpRight size={13} /></button>
+              <h2>Open submission, explicit risk.</h2>
+              <p>Anyone can submit a standard token listing. Community assets are clearly marked unverified, and no submission is treated as an audit, endorsement or liquidity promise.</p>
+              <button type="button" className="landing-outline-button" onClick={goToLaunch}>Open Launch <ArrowUpRight size={13} /></button>
             </div>
           </article>
           <article className="landing-feature-card landing-feature-image-card">
-            <img src="/assets/markets/gold.png" alt="Gold bullion" />
+            <img src="/assets/markets/gold.png" alt="" />
             <div className="landing-feature-image-wash" />
             <div className="landing-feature-copy">
-              <div className="landing-feature-label"><BarChart3 size={16} /> UNIFIED tUSDC</div>
-              <h2>Spot, liquidity and perpetuals share one test asset.</h2>
-              <p>The same tUSDC contract is used as the Spot quote asset, one-sided LP inventory and Perpetuals collateral, keeping the testnet flow simple.</p>
+              <div className="landing-feature-label"><BadgeCheck size={16} /> CURATED RWA</div>
+              <h2>Evidence before exposure.</h2>
+              <p>Selected RWA projects can submit issuer, custody, jurisdiction, legal-document and proof references for a human review workflow.</p>
+              <button type="button" className="landing-outline-button" onClick={goToRwaLaunch}>Submit an RWA project <ArrowUpRight size={13} /></button>
             </div>
           </article>
         </div>
@@ -205,44 +208,44 @@ export default function CustosLandingPage() {
       <section id="markets" className="landing-section landing-markets-section">
         <div className="landing-section-heading">
           <div>
-            <p className="landing-kicker">LIVE MARKET PREVIEW</p>
-            <h2>Choose a real-world reference market.</h2>
+            <p className="landing-kicker">MARKET PREVIEW</p>
+            <h2>Start with information, then trade.</h2>
           </div>
-          <button type="button" className="landing-text-button" onClick={goToMarkets}>Open all live markets <ArrowUpRight size={14} /></button>
+          <button type="button" className="landing-text-button" onClick={goToMarket}>Open Market <ArrowUpRight size={14} /></button>
         </div>
         <div className="landing-market-grid">
           {MARKET_CARDS.map((market) => (
-            <button type="button" key={market.symbol} className="landing-market-card" onClick={goToMarkets}>
-              <div className="landing-market-image"><img src={market.image} alt={market.title} /><span>LIVE</span></div>
+            <button type="button" key={market.symbol} className="landing-market-card" onClick={() => { window.location.hash = market.route }}>
+              <div className="landing-market-image"><img src={market.image} alt="" /><span>INFO</span></div>
               <div className="landing-market-body">
                 <p className="landing-market-pair">{market.symbol}</p>
                 <h3>{market.title}</h3>
                 <p>{market.category}</p>
-                <div className="landing-market-action">Open market <ArrowUpRight size={13} /></div>
+                <div className="landing-market-action">Open surface <ArrowUpRight size={13} /></div>
               </div>
             </button>
           ))}
         </div>
       </section>
 
-      <section id="season-cta" className="landing-section landing-cta-section">
+      <section id="launch-cta" className="landing-section landing-cta-section">
         <div className="landing-cta-card">
           <div className="landing-cta-copy">
-            <div className="landing-feature-label"><BadgeCheck size={16} /> PUBLIC BETA · SEASON 1</div>
-            <h2>Open participation on GIWA Sepolia. Real market data, testnet execution.</h2>
-            <p>rXAU, rXAG, rWTI and tUSDC are synthetic testnet assets. They are not redeemable for physical commodities, cash, securities or any legally enforceable real-world claim. Season points do not guarantee tokens, rewards or monetary value.</p>
+            <div className="landing-feature-label"><CircleDollarSign size={16} /> ASSET HUB · TESTNET READY</div>
+            <h2>Keep the product small enough to ship and useful enough to grow.</h2>
+            <p>Custos does not custody real assets, mint unreviewed tokens, provide market-making capital or guarantee redemption. Projects remain responsible for their assets, documents and liquidity.</p>
           </div>
           <div className="landing-cta-actions">
-            <button type="button" className="landing-secondary-button" onClick={goToSeason}>Join Season 1 <ArrowUpRight size={14} /></button>
-            <button type="button" className="landing-primary-button" onClick={goToTerminal}>Enter Custos <ArrowUpRight size={14} /></button>
+            <button type="button" className="landing-secondary-button" onClick={goToRwaLaunch}>Submit RWA <ArrowUpRight size={14} /></button>
+            <button type="button" className="landing-primary-button" onClick={goToSwap}>Enter Swap <ArrowUpRight size={14} /></button>
           </div>
         </div>
       </section>
 
       <footer className="landing-footer">
-        <div className="landing-footer-brand"><LogoMark size={30} /><span>CUSTOS · GIWA SEPOLIA</span></div>
-        <span><Globe2 size={12} /> PYTH CORE = ONCHAIN SETTLEMENT ORACLE</span>
-        <a href="https://sepolia-explorer.giwa.io" target="_blank" rel="noreferrer">EXPLORER <ExternalLink size={11} /></a>
+        <div className="landing-footer-brand"><LogoMark size={30} /><span>CUSTOS · ASSET HUB</span></div>
+        <span><Globe2 size={12} /> STANDARD TOKENS · EXTERNAL LIQUIDITY · CLEAR STATUS</span>
+        <a href="https://github.com/custosDefi/custos-Finance" target="_blank" rel="noreferrer">SOURCE <ExternalLink size={11} /></a>
       </footer>
     </div>
   )
