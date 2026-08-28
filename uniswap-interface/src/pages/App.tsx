@@ -23,7 +23,7 @@ export default function App() {
         <Switch>
           <Route exact path={['/', '/index.html']} component={CustosLandingPage} />
           <Route
-            path={['/defi', '/swap', '/send', '/pool', '/find', '/create', '/add', '/remove']}
+            path={['/defi', '/swap', '/send', '/pool', '/find', '/create', '/add', '/remove', '/perp']}
             render={() => (
               <Web3ReactManager>
                 <DefiShell />

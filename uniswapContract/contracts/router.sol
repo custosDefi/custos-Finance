@@ -697,7 +697,7 @@ library UniswapV2Library {
                 hex'ff',
                 factory,
                 keccak256(abi.encodePacked(token0, token1)),
-                hex'7fc89f4cb702a8eb173dcbe597152274c629a24791ad7bfe3a8fc02c4c802a9d' // Custos V2 pair init code hash
+                hex'557a766008a8cd8e924285f8112de27cababa9ac28e813698860a4342ed3f647' // init code hash
             ))));
     }
 

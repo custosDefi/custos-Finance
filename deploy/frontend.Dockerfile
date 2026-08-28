@@ -12,12 +12,18 @@ RUN npm ci --prefix uniswap-interface --legacy-peer-deps --ignore-scripts
 COPY uniswap-interface ./uniswap-interface
 
 ARG VITE_API_BASE
-ARG VITE_CHAIN_ID=91342
-ARG VITE_NETWORK_URL=https://sepolia-rpc.giwa.io
+ARG VITE_CHAIN_ID=1
+ARG VITE_NETWORK_URL=https://cloudflare-eth.com
+ARG VITE_GIWA_RPC=https://sepolia-rpc.giwa.io
+ARG VITE_GIWA_EXPLORER=https://sepolia-explorer.giwa.io
+ARG VITE_GIWA_CHAIN_ID=91342
 
 ENV VITE_API_BASE=${VITE_API_BASE} \
     VITE_CHAIN_ID=${VITE_CHAIN_ID} \
-    VITE_NETWORK_URL=${VITE_NETWORK_URL}
+    VITE_NETWORK_URL=${VITE_NETWORK_URL} \
+    VITE_GIWA_RPC=${VITE_GIWA_RPC} \
+    VITE_GIWA_EXPLORER=${VITE_GIWA_EXPLORER} \
+    VITE_GIWA_CHAIN_ID=${VITE_GIWA_CHAIN_ID}
 
 RUN npm run build --prefix uniswap-interface
 

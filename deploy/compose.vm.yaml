@@ -7,13 +7,17 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8080"
-      DATABASE_PATH: /data/custos_asset_hub.db
-      CHAIN_ID: ${CHAIN_ID:-91342}
-      NETWORK_NAME: ${NETWORK_NAME:-Target L2}
-      RPC_URL: ${RPC_URL:-https://sepolia-rpc.giwa.io}
-      EXPLORER_URL: ${EXPLORER_URL:-https://sepolia-explorer.giwa.io}
+      DATABASE_PATH: /data/rwa_exchange.db
+      BETA_DATABASE_PATH: /data/kelq_beta.db
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
-      ADMIN_REVIEW_KEY: ${ADMIN_REVIEW_KEY:-}
+      GIWA_RPC_URL: ${GIWA_RPC_URL:-https://sepolia-rpc.giwa.io}
+      GIWA_FLASHBLOCKS_RPC_URL: ${GIWA_FLASHBLOCKS_RPC_URL:-https://sepolia-rpc-flashblocks.giwa.io}
+      GIWA_EXPLORER_URL: ${GIWA_EXPLORER_URL:-https://sepolia-explorer.giwa.io}
+      PYTH_HERMES_URL: ${PYTH_HERMES_URL:-https://hermes.pyth.network}
+      PYTH_API_KEY: ${PYTH_API_KEY:-}
+      PYTH_PRO_API_KEY: ${PYTH_PRO_API_KEY:-}
+      PYTH_STREAM_CHANNEL: ${PYTH_STREAM_CHANNEL:-fixed_rate@200ms}
+      PYTH_STREAM_ENDPOINTS: ${PYTH_STREAM_ENDPOINTS:-}
     ports:
       - "8000:8080"
     volumes:
@@ -31,8 +35,11 @@ services:
       args:
         NGINX_CONFIG: deploy/nginx.vm.conf
         VITE_API_BASE: ${VITE_API_BASE}
-        VITE_CHAIN_ID: ${VITE_CHAIN_ID:-91342}
-        VITE_NETWORK_URL: ${VITE_NETWORK_URL:-https://sepolia-rpc.giwa.io}
+        VITE_CHAIN_ID: ${VITE_CHAIN_ID:-1}
+        VITE_NETWORK_URL: ${VITE_NETWORK_URL:-https://cloudflare-eth.com}
+        VITE_GIWA_RPC: ${VITE_GIWA_RPC:-https://sepolia-rpc.giwa.io}
+        VITE_GIWA_EXPLORER: ${VITE_GIWA_EXPLORER:-https://sepolia-explorer.giwa.io}
+        VITE_GIWA_CHAIN_ID: ${VITE_GIWA_CHAIN_ID:-91342}
     container_name: custos-web
     restart: unless-stopped
     depends_on:

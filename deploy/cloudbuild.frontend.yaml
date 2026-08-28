@@ -10,6 +10,12 @@ steps:
       - VITE_CHAIN_ID=${_VITE_CHAIN_ID}
       - --build-arg
       - VITE_NETWORK_URL=${_VITE_NETWORK_URL}
+      - --build-arg
+      - VITE_GIWA_RPC=${_VITE_GIWA_RPC}
+      - --build-arg
+      - VITE_GIWA_EXPLORER=${_VITE_GIWA_EXPLORER}
+      - --build-arg
+      - VITE_GIWA_CHAIN_ID=${_VITE_GIWA_CHAIN_ID}
       - -t
       - ${_IMAGE}
       - .

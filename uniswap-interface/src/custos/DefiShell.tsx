@@ -1,6 +1,20 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Redirect, Route, Switch, useHistory, useLocation } from 'react-router-dom'
-import { ArrowUpRight, Menu as MenuIcon, X } from 'lucide-react'
+import {
+  Activity,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Droplets,
+  FileCheck2,
+  LayoutDashboard,
+  Menu as MenuIcon,
+  Search,
+  ShieldCheck,
+  TrendingUp,
+  Trophy,
+  Wallet,
+  X,
+} from 'lucide-react'
 
 import AddLiquidity from '../pages/AddLiquidity'
 import Pool from '../pages/Pool'
@@ -9,50 +23,99 @@ import RemoveLiquidity from '../pages/RemoveLiquidity'
 import Swap from '../pages/Swap'
 import { useActiveWeb3React } from '../hooks'
 import { useETHBalances } from '../state/wallet/hooks'
+import { useWalletModalToggle } from '../state/application/hooks'
 import Menu from '../components/Menu'
 import Popups from '../components/Popups'
 import Web3Status from '../components/Web3Status'
 import I18nSwitch from '../components/I18nSwitch'
 import {
-  CuratedRwaLaunchPage,
-  MarketPage,
-  PermissionlessLaunchPage,
-} from './AssetHubPages'
-import type { AssetListing } from './AssetHubPages'
+  SpotLiquidityPage,
+  SpotPortfolioPage,
+  SpotTradePage,
+  SpotTransparencyPage,
+} from './SpotPages'
+import PublicBetaPage from './PublicBetaPage'
+import CustosPerpTerminal from './CustosPerpTerminal'
 
-type WorkspaceTab = 'swap' | 'market' | 'launch' | 'rwa-launch'
+type WorkspaceTab =
+  | 'swap'
+  | 'overview'
+  | 'markets'
+  | 'spot'
+  | 'liquidity'
+  | 'portfolio'
+  | 'season'
+  | 'transparency'
+  | 'perpetuals'
+
+type Quote = {
+  price?: number
+  fresh?: boolean
+  source?: string
+  session?: string
+}
+
+type Market = {
+  symbol: string
+  name: string
+  unit: string
+  quote?: Quote | null
+}
 
 type NavItem = {
   id: WorkspaceTab
   label: string
   description: string
+  icon: typeof LayoutDashboard
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'swap', label: 'Swap', description: 'Trade listed tokens' },
-  { id: 'market', label: 'Market', description: 'Discover assets and projects' },
-  { id: 'launch', label: 'Launch', description: 'List a community token' },
-  { id: 'rwa-launch', label: 'RWA Launch', description: 'Submit a curated project' },
+  { id: 'swap', label: 'Swap', description: 'Trade tokens', icon: ArrowLeftRight },
+  { id: 'liquidity', label: 'Liquidity', description: 'Manage Swap pools', icon: Droplets },
+  { id: 'spot', label: 'Spot Trade', description: 'Trade synthetic assets', icon: ArrowLeftRight },
+  { id: 'markets', label: 'Real Markets', description: 'Pyth reference markets', icon: Search },
+  { id: 'perpetuals', label: 'Perpetuals', description: 'Leveraged testnet markets', icon: TrendingUp },
+  { id: 'portfolio', label: 'Portfolio', description: 'Wallet, positions and activity', icon: Wallet },
+  { id: 'season', label: 'Season 1', description: 'Verified participation', icon: Trophy },
+  { id: 'transparency', label: 'Transparency', description: 'Contracts and proof data', icon: ShieldCheck },
 ]
 
+const MARKET_FALLBACKS: Record<string, { name: string; unit: string; image: string; accent: string }> = {
+  XAU: { name: 'Gold', unit: 'USD / oz', image: '/assets/markets/gold.png', accent: 'PRECIOUS METAL' },
+  XAG: { name: 'Silver', unit: 'USD / oz', image: '/assets/markets/silver.png', accent: 'PRECIOUS METAL' },
+  OIL: { name: 'WTI Crude Oil', unit: 'USD / barrel', image: '/assets/markets/oil.png', accent: 'ENERGY' },
+}
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000')
+
+function formatPrice(price?: number) {
+  if (!price || !Number.isFinite(price)) return '—'
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: price < 10 ? 4 : 2,
+    minimumFractionDigits: price < 10 ? 2 : 2,
+  }).format(price)
+}
+
 function tabFromLocation(pathname: string, search: string): WorkspaceTab {
-  const queryTab = new URLSearchParams(search).get('tab')
+  const queryTab = new URLSearchParams(search).get('tab') as WorkspaceTab | null
   if (pathname === '/defi' || pathname === '/defi/overview') {
-    if (queryTab === 'markets' || queryTab === 'market') return 'market'
-    if (queryTab === 'launch') return 'launch'
-    if (queryTab === 'rwa-launch' || queryTab === 'rwa') return 'rwa-launch'
-    return 'swap'
+    if (queryTab === 'overview' || !queryTab) return 'swap'
+    return NAV_ITEMS.some((item) => item.id === queryTab) ? queryTab : 'swap'
   }
 
-  const segment = pathname.split('/')[2]
-  if (segment === 'markets') return 'market'
-  if (segment === 'rwa') return 'rwa-launch'
-  if (NAV_ITEMS.some((item) => item.id === segment)) return segment as WorkspaceTab
-  return 'swap'
+  const segment = pathname.split('/')[2] as WorkspaceTab | undefined
+  if (segment === 'overview') return 'swap'
+  return NAV_ITEMS.some((item) => item.id === segment) ? segment || 'swap' : 'swap'
 }
 
 function pathForTab(tab: WorkspaceTab) {
-  return tab === 'swap' ? '/defi' : '/defi/' + tab
+  if (tab === 'swap' || tab === 'overview') return '/defi'
+  // The primary Liquidity tab belongs to the Custos Swap V2 pool manager.
+  // The RWA liquidity view remains available at /defi?tab=liquidity for now.
+  if (tab === 'liquidity') return '/defi/liquidity/v2'
+  return `/defi/${tab}`
 }
 
 function LogoMark({ size = 42 }: { size?: number }) {
@@ -67,51 +130,190 @@ function LogoMark({ size = 42 }: { size?: number }) {
   )
 }
 
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="defi-section-heading">
+      <div>
+        <div className="defi-eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      {action ? <div className="defi-heading-action">{action}</div> : null}
+    </div>
+  )
+}
+
+function PageCard({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <section className={`defi-card ${className}`}>{children}</section>
+}
+
+function MarketsPage({ go }: { go: (tab: WorkspaceTab) => void }) {
+  const [markets, setMarkets] = useState<Market[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState('')
+
+  async function refresh() {
+    setLoading(true)
+    setApiError('')
+    try {
+      const response = await fetch(`${API_BASE}/api/real-markets`, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`Market API returned ${response.status}`)
+      const body = await response.json()
+      setMarkets(Array.isArray(body.markets) ? body.markets : [])
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Market data is temporarily unavailable.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refresh()
+    const timer = window.setInterval(() => void refresh(), 15_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const marketRows = ['XAU', 'XAG', 'OIL'].map((symbol) => {
+    const configured = markets.find((market) => market.symbol === symbol)
+    const fallback = MARKET_FALLBACKS[symbol]
+    return {
+      symbol,
+      name: configured?.name || fallback.name,
+      unit: configured?.unit || fallback.unit,
+      image: fallback.image,
+      accent: fallback.accent,
+      quote: configured?.quote,
+    }
+  })
+
+  return (
+    <div className="defi-fade-in">
+      <SectionHeading
+        eyebrow="REAL-WORLD MARKETS"
+        title="Reference prices from the underlying world."
+        description="Gold, Silver and WTI market context is sourced from Pyth. Open Spot Trade to interact with the synthetic testnet instruments."
+        action={(
+          <button type="button" className="defi-secondary-button" onClick={() => void refresh()}>
+            <Activity size={15} /> {loading ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        )}
+      />
+
+      <div className="defi-market-status">
+        <span className={apiError ? 'defi-status-dot warning' : 'defi-status-dot'} />
+        {apiError ? 'PYTH CORE CONNECTING' : loading ? 'LOADING PYTH CORE' : 'PYTH CORE LIVE'}
+        {apiError ? <span className="defi-status-detail">{apiError}</span> : <span className="defi-status-detail">Latest quote feed · 15s refresh</span>}
+      </div>
+
+      <div className="defi-market-grid">
+        {marketRows.map((market) => (
+          <article key={market.symbol} className="defi-market-card">
+            <div className="defi-market-image">
+              <img src={market.image} alt={market.name} />
+              <div className="defi-market-image-overlay" />
+              <div className="defi-market-image-copy">
+                <span>{market.symbol} · {market.accent}</span>
+                <h2>{market.name}</h2>
+              </div>
+            </div>
+            <div className="defi-market-card-body">
+              <div className="defi-market-price-row">
+                <div><span>{market.symbol} / USD</span><strong>${formatPrice(market.quote?.price)}</strong></div>
+                <span className={`defi-live-pill ${market.quote?.fresh ? '' : 'muted'}`}>{market.quote?.fresh ? 'LIVE' : 'REFERENCE'}</span>
+              </div>
+              <p>{market.quote?.source || 'Pyth Core'} · {market.unit}</p>
+              <button type="button" className="defi-primary-button full" onClick={() => go('spot')}>
+                Trade this reference <ArrowUpRight size={15} />
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <PageCard className="defi-market-note">
+        <FileCheck2 size={19} />
+        <p><strong>Data and risk note:</strong> prices are real-world references; Custos synthetic tokens and all GIWA execution are testnet instruments. Nothing here represents custody, redemption or legal ownership of an underlying asset.</p>
+      </PageCard>
+    </div>
+  )
+}
+
 function WorkspaceContent({
   tab,
   account,
+  onConnect,
   setToast,
   go,
-  openSwap,
 }: {
   tab: WorkspaceTab
   account: string | null | undefined
+  onConnect: () => void
   setToast: (value: string) => void
   go: (next: WorkspaceTab) => void
-  openSwap: (listing: AssetListing) => void
 }) {
-  if (tab === 'market') {
+  if (tab === 'swap' || tab === 'overview') {
     return (
-      <MarketPage
-        setToast={setToast}
-        onSwap={openSwap}
-      />
+      <div className="defi-core-page">
+        <Swap />
+      </div>
     )
   }
-
-  if (tab === 'launch') {
+  if (tab === 'markets') return <MarketsPage go={go} />
+  if (tab === 'spot') {
     return (
-      <PermissionlessLaunchPage
-        account={account}
-        onMarket={() => go('market')}
-        setToast={setToast}
-      />
+      <div className="defi-fade-in">
+        <SectionHeading
+          eyebrow="SPOT TRADE"
+          title="Trade synthetic real-market references."
+          description="The RWA Spot module uses the shared tUSDC test asset and Pyth reference prices. Custos V2 routing remains available as the core token swap surface."
+          action={(
+            <button type="button" className="defi-secondary-button" onClick={() => window.location.hash = '/defi/spot/v2'}>
+              Open V2 token swap <ArrowLeftRight size={15} />
+            </button>
+          )}
+        />
+        <SpotTradePage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+      </div>
     )
   }
-
-  if (tab === 'rwa-launch') {
+  if (tab === 'liquidity') {
     return (
-      <CuratedRwaLaunchPage
-        account={account}
-        onMarket={() => go('market')}
-        setToast={setToast}
-      />
+      <div className="defi-fade-in">
+        <SectionHeading
+          eyebrow="LIQUIDITY"
+          title="Provide liquidity across the market layers."
+          description="Use the real-price synthetic pools for tUSDC LP inventory, or open the Custos V2 pool manager for classic pair liquidity, add and remove flows."
+          action={(
+            <button type="button" className="defi-secondary-button" onClick={() => window.location.hash = '/defi/liquidity/v2'}>
+              Open V2 pools <Droplets size={15} />
+            </button>
+          )}
+        />
+        <SpotLiquidityPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+      </div>
     )
   }
-
+  if (tab === 'portfolio') return <SpotPortfolioPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+  if (tab === 'season') return <PublicBetaPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+  if (tab === 'transparency') return <SpotTransparencyPage />
   return (
-    <div className="defi-core-page">
-      <Swap />
+    <div className="defi-fade-in">
+      <SectionHeading
+        eyebrow="PERPETUALS"
+        title="Perpetual markets, inside the same workspace."
+        description="Open, monitor and close leveraged GIWA testnet positions with live Pyth market context and shared collateral."
+      />
+      <CustosPerpTerminal externalWallet={account || ''} />
     </div>
   )
 }
@@ -120,6 +322,7 @@ export default function DefiShell() {
   const history = useHistory()
   const location = useLocation()
   const { account, chainId } = useActiveWeb3React()
+  const toggleWalletModal = useWalletModalToggle()
   const ethBalance = useETHBalances(account ? [account] : [])?.[account || '']
   const [navOpen, setNavOpen] = useState(false)
   const [toast, setToast] = useState('')
@@ -129,7 +332,7 @@ export default function DefiShell() {
   const networkLabel = useMemo(() => {
     if (numericChainId === 47805) return 'LOCAL TESTNET'
     if (numericChainId === 91342) return 'GIWA SEPOLIA'
-    if (numericChainId) return 'CHAIN ' + numericChainId
+    if (numericChainId) return `CHAIN ${numericChainId}`
     return 'NETWORK NOT CONNECTED'
   }, [numericChainId])
 
@@ -138,16 +341,11 @@ export default function DefiShell() {
     history.push(pathForTab(next))
   }
 
-  const openSwap = (listing: AssetListing) => {
-    setNavOpen(false)
-    history.push({
-      pathname: '/defi',
-      search: listing.tokenAddress ? '?outputCurrency=' + encodeURIComponent(listing.tokenAddress) : '',
-    })
-    setToast(listing.symbol + ' selected in Swap. The project is responsible for maintaining liquidity.')
-  }
-
-  const activeTab = NAV_ITEMS.some((item) => item.id === tab) ? tab : 'swap'
+  const routePath = location.pathname
+  const legacyV2 = routePath === '/defi/spot/v2' || routePath === '/defi/liquidity/v2'
+  const activeTab: WorkspaceTab = legacyV2
+    ? (routePath.includes('/liquidity/') ? 'liquidity' : 'swap')
+    : tab
 
   return (
     <div className="defi-app">
@@ -158,15 +356,15 @@ export default function DefiShell() {
           <div className="defi-topbar-left">
             <button type="button" className="defi-brand" onClick={() => go('swap')}>
               <LogoMark size={58} />
-              <span><strong>Custos Finance</strong><small>SWAP · LAUNCH · MARKET</small></span>
+              <span><strong>Custos Finance</strong><small>RWA · SPOT · PERPETUALS</small></span>
             </button>
           </div>
-          <nav className="defi-top-nav" aria-label="Custos Finance navigation">
+          <nav className="defi-top-nav" aria-label="Custos DeFi navigation">
             {NAV_ITEMS.map(({ id, label }) => (
               <button
                 type="button"
                 key={id}
-                className={'defi-top-nav-item ' + (activeTab === id ? 'active' : '')}
+                className={`defi-top-nav-item ${activeTab === id ? 'active' : ''}`}
                 onClick={() => go(id)}
                 aria-current={activeTab === id ? 'page' : undefined}
               >
@@ -191,12 +389,12 @@ export default function DefiShell() {
             </button>
           </div>
           {navOpen ? (
-            <nav className="defi-mobile-nav" aria-label="Custos Finance mobile navigation">
+            <nav className="defi-mobile-nav" aria-label="Custos DeFi mobile navigation">
               {NAV_ITEMS.map(({ id, label, description }) => (
                 <button
                   type="button"
                   key={id}
-                  className={'defi-mobile-nav-item ' + (activeTab === id ? 'active' : '')}
+                  className={`defi-mobile-nav-item ${activeTab === id ? 'active' : ''}`}
                   onClick={() => go(id)}
                 >
                   <span>{label}</span>
@@ -209,19 +407,31 @@ export default function DefiShell() {
         </header>
 
         <div className="defi-content">
-          <Switch>
-            <Route exact path="/defi/liquidity/v2" render={() => <div className="defi-core-page"><Pool /></div>} />
-            <Route exact path="/swap" render={() => <Redirect to="/defi" />} />
-            <Route exact path="/swap/:outputCurrency" render={() => <Redirect to="/defi" />} />
-            <Route exact path={['/send', '/pool', '/create']} render={() => <Redirect to="/defi" />} />
-            <Route exact path="/find" render={() => <div className="defi-core-page"><PoolFinder /></div>} />
-            <Route exact path="/add" component={AddLiquidity} />
-            <Route exact path="/add/:currencyIdA" component={AddLiquidity} />
-            <Route exact path="/add/:currencyIdA/:currencyIdB" component={AddLiquidity} />
-            <Route exact path="/remove/:currencyIdA/:currencyIdB" component={RemoveLiquidity} />
-            <Route path="/defi" render={() => <WorkspaceContent tab={tab} account={account} setToast={setToast} go={go} openSwap={openSwap} />} />
-            <Redirect to="/defi" />
-          </Switch>
+          {legacyV2 ? (
+            <div className="defi-core-page">
+              <Switch>
+                <Route exact path="/defi/spot/v2" render={() => <Swap />} />
+                <Route exact path="/defi/liquidity/v2" render={() => <Pool />} />
+              </Switch>
+            </div>
+          ) : (
+            <Switch>
+              <Route exact path="/swap" render={() => <Redirect to="/defi" />} />
+              <Route exact path="/swap/:outputCurrency" render={() => <Redirect to="/defi" />} />
+              <Route exact path="/send" render={() => <Redirect to="/defi" />} />
+              <Route exact path="/create" render={() => <Redirect to="/defi/liquidity" />} />
+              <Route exact path="/remove/:tokens" render={() => <Redirect to="/defi/liquidity" />} />
+              <Route exact path="/perp" render={() => <Redirect to="/defi/perpetuals" />} />
+              <Route exact path="/pool" render={() => <Redirect to="/defi/liquidity/v2" />} />
+              <Route exact path="/find" render={() => <div className="defi-core-page"><PoolFinder /></div>} />
+              <Route exact path="/add" component={AddLiquidity} />
+              <Route exact path="/add/:currencyIdA" component={AddLiquidity} />
+              <Route exact path="/add/:currencyIdA/:currencyIdB" component={AddLiquidity} />
+              <Route exact path="/remove/:currencyIdA/:currencyIdB" component={RemoveLiquidity} />
+              <Route path="/defi" render={() => <WorkspaceContent tab={tab} account={account} onConnect={toggleWalletModal} setToast={setToast} go={go} />} />
+              <Redirect to="/defi" />
+            </Switch>
+          )}
         </div>
       </main>
 

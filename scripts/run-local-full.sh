@@ -83,7 +83,7 @@ if [[ "$START_BACKEND" -eq 1 ]]; then
   fi
 
   for _ in $(seq 1 30); do
-    if curl -sf http://127.0.0.1:8001/api/health >/dev/null 2>&1; then
+    if curl -sf http://127.0.0.1:8001/health >/dev/null 2>&1; then
       break
     fi
     sleep 1

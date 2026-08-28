@@ -1,7 +1,6 @@
 import { createWeb3ReactRoot, Web3ReactProvider } from '@web3-react/core'
 import 'inter-ui'
 import './custos/custos.css'
-import './custos/asset-hub.css'
 import React, { StrictMode } from 'react'
 import { isMobile } from 'react-device-detect'
 import { createRoot } from 'react-dom/client'

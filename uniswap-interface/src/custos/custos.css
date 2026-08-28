@@ -2,11 +2,28 @@
 @tailwind utilities;
 
 /* Shared visual language for the Custos product surfaces. */
+.giwa-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 78% 3%, rgba(109, 255, 158, 0.095), transparent 21%),
+    radial-gradient(circle at 90% 52%, rgba(42, 138, 174, 0.075), transparent 22%),
+    linear-gradient(180deg, #06131f 0%, #04101a 52%, #02080d 100%);
+}
+
 .soft-grid {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
   background-size: 45px 45px;
+}
+
+.giwa-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: linear-gradient(135deg, rgba(14, 36, 52, 0.88), rgba(5, 18, 29, 0.82));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045), 0 15px 45px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(18px);
 }
 
 .field-surface {
@@ -2236,7 +2253,8 @@ body {
   color: var(--custos-primary);
 }
 
-.defi-card {
+.defi-card,
+.giwa-panel {
   border-color: var(--custos-border);
   background: var(--custos-card);
   box-shadow: none;
@@ -2301,6 +2319,15 @@ body {
   color: var(--custos-faint);
 }
 
+.defi-app a.giwa-panel {
+  color: inherit;
+  text-decoration: none;
+}
+
+.defi-app a.giwa-panel:hover {
+  color: inherit;
+}
+
 .defi-core-page {
   display: flex;
   justify-content: center;
@@ -2319,6 +2346,54 @@ body {
 
 .defi-core-page [id='swap-page'] {
   color: var(--custos-foreground);
+}
+
+/* Perpetual terminal uses its own class system; bring its palette in line. */
+
+.perp-embed {
+  --bg: #0a0f0d;
+  --panel: #101a16;
+  --panel2: #14211c;
+  --line: rgba(176, 218, 198, 0.15);
+  --text: #eff7f2;
+  --muted: #8b9a92;
+  --green: #63e9a8;
+  --amber: #e7c875;
+}
+
+.defi-app .perp-embed .app {
+  min-height: 0 !important;
+  height: auto !important;
+  grid-template-rows: 42px auto 30px !important;
+  background: var(--bg);
+}
+
+.defi-app .defi-content .perp-embed {
+  min-height: 0 !important;
+}
+
+.perp-embed .panel,
+.perp-embed .metrics div,
+.perp-embed .accountStrip > div,
+.perp-embed .orderMode button.active,
+.perp-embed .input,
+.perp-embed .quick button,
+.perp-embed .leverage button,
+.perp-embed .sideTabs button,
+.perp-embed .collateralActions button,
+.perp-embed .statusBox,
+.perp-embed .risk {
+  background-color: var(--panel);
+}
+
+.perp-embed .main,
+.perp-embed .order,
+.perp-embed .markets {
+  background: var(--panel);
+}
+
+.perp-embed .tradeButton.long {
+  background: var(--green);
 }
 
 @media (max-width: 1180px) {

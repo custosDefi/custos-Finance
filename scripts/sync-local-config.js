@@ -111,10 +111,13 @@ const envFile = path.resolve(root, 'uniswap-interface/.env')
 const existingEnv = fs.existsSync(envFile) ? fs.readFileSync(envFile, 'utf8') : ''
 const preservedEnv = existingEnv
   .split(/\r?\n/)
-  .filter((line) => line.trim() && !/^\s*VITE_(CHAIN_ID|NETWORK_URL|GIWA_)/.test(line))
+  .filter((line) => line.trim() && !/^\s*VITE_(CHAIN_ID|NETWORK_URL)=/.test(line))
 const envKeys = new Set(preservedEnv.map((line) => line.split('=', 1)[0].trim()))
 const envDefaults = [
   'VITE_API_BASE="http://127.0.0.1:8001"',
+  'VITE_GIWA_RPC="https://sepolia-rpc.giwa.io"',
+  'VITE_GIWA_EXPLORER="https://sepolia-explorer.giwa.io"',
+  'VITE_GIWA_CHAIN_ID="91342"',
 ].filter((line) => !envKeys.has(line.split('=', 1)[0]))
 const envLines = [`VITE_CHAIN_ID="${chainId}"`, `VITE_NETWORK_URL="${rpcUrl}"`, ...envDefaults, ...preservedEnv]
 writeFile(envFile, `${envLines.join('\n')}\n`)
