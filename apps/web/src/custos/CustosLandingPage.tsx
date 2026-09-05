@@ -1,248 +1,254 @@
-import React, { useState } from 'react'
-import {
-  ArrowUpRight,
-  BarChart3,
-  BadgeCheck,
-  CircleDollarSign,
-  ExternalLink,
-  FileCheck2,
-  Globe2,
-  Layers3,
-  Lock,
-  Menu,
-  ShieldCheck,
-  Wallet,
-  X,
-} from 'lucide-react'
-
-const MARKET_CARDS = [
-  {
-    symbol: 'XAU / USD',
-    title: 'Gold',
-    category: 'Precious metal · Pyth reference',
-    image: '/assets/markets/gold.png',
-  },
-  {
-    symbol: 'XAG / USD',
-    title: 'Silver',
-    category: 'Precious metal · Pyth reference',
-    image: '/assets/markets/silver.png',
-  },
-  {
-    symbol: 'WTI / USD',
-    title: 'WTI Crude Oil',
-    category: 'Energy · Pyth reference',
-    image: '/assets/markets/oil.png',
-  },
-]
-
-const STEPS = [
-  {
-    number: '01',
-    icon: Wallet,
-    title: 'Connect GIWA',
-    body: 'Connect an EVM wallet on GIWA Sepolia and keep test ETH for gas.',
-  },
-  {
-    number: '02',
-    icon: CircleDollarSign,
-    title: 'Claim shared tUSDC',
-    body: 'Use the Custos Finance testnet faucet. The same tUSDC works across Spot and Perpetuals.',
-  },
-  {
-    number: '03',
-    icon: FileCheck2,
-    title: 'Explore real markets',
-    body: 'Follow Pyth reference prices and OHLC candles for Gold, Silver and WTI.',
-  },
-  {
-    number: '04',
-    icon: Layers3,
-    title: 'Trade, LP or open Perps',
-    body: 'Swap synthetic spot assets, provide tUSDC liquidity, or trade perpetuals.',
-  },
-] as const
+import React, { useEffect, useState } from 'react'
+import './homepage.css'
 
 function scrollToSection(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
   event.preventDefault()
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function LogoMark({ size = 40 }: { size?: number }) {
+function BrandSymbol({ className = 'brand-symbol' }: { className?: string }) {
   return (
-    <img
-      src="/custos-icon.png"
-      alt="Custos Finance"
-      width={size}
-      height={size}
-      className="landing-logo-mark"
-    />
+    <svg className={className} viewBox="0 0 64 64" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="5">
+        <path d="M49 19.5A21 21 0 1 0 49 44.5" />
+        <path d="M41.3 25.1a11.5 11.5 0 1 0 0 13.8" />
+      </g>
+      <path d="M34 32h16.4" stroke="#35b978" strokeWidth="5" />
+    </svg>
+  )
+}
+
+function LargeBrandSymbol({ className = 'hero-mark' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 512 512" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="38">
+        <path d="M391.91 157.25A168 168 0 1 0 391.91 354.75" />
+        <path d="M330.43 201.92A92 92 0 1 0 330.43 310.08" />
+      </g>
+      <path d="M270 256H401" stroke="#35b978" strokeWidth="38" />
+    </svg>
   )
 }
 
 function LandingHeader({ onEnter }: { onEnter: () => void }) {
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const updateHeader = () => setScrolled(window.scrollY > 18)
+    updateHeader()
+    window.addEventListener('scroll', updateHeader, { passive: true })
+    return () => window.removeEventListener('scroll', updateHeader)
+  }, [])
+
   const links = [
-    ['JOURNEY', 'journey'],
-    ['BENEFITS', 'benefits'],
-    ['MARKETS', 'markets'],
+    ['System', 'system'],
+    ['Markets', 'markets'],
+    ['Proof', 'proof'],
+    ['Season 1', 'season'],
   ] as const
 
+  const navigateTo = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    setOpen(false)
+    scrollToSection(event, id)
+  }
+
   return (
-    <header className="landing-header">
-      <div className="landing-header-inner">
-        <a className="landing-brand" href="#top" onClick={(event) => scrollToSection(event, 'top')}>
-          <LogoMark />
-          <span>
-            <strong>Custos Finance</strong>
-            <small>RWA · SPOT · PERPETUALS</small>
-          </span>
-        </a>
+    <header className={`site-header${scrolled ? ' is-scrolled' : ''}`}>
+      <a className="brand" href="#top" aria-label="Custos Finance home" onClick={(event) => navigateTo(event, 'top')}>
+        <BrandSymbol />
+        <span>CUSTOS FINANCE</span>
+      </a>
 
-        <nav className="landing-nav" aria-label="Landing page navigation">
-          {links.map(([label, id]) => (
-            <a key={id} href={`#${id}`} onClick={(event) => scrollToSection(event, id)}>{label}</a>
-          ))}
-          <a href="#season-cta" onClick={(event) => scrollToSection(event, 'season-cta')}>SEASON 1</a>
-        </nav>
+      <button
+        className="menu-toggle"
+        type="button"
+        aria-expanded={open}
+        aria-controls="primary-nav"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span />
+        <span />
+        <span className="sr-only">{open ? 'Close menu' : 'Open menu'}</span>
+      </button>
 
-        <div className="landing-header-actions">
-          <button type="button" className="landing-enter-button" onClick={onEnter}>ENTER CUSTOS <ArrowUpRight size={13} /></button>
-          <button
-            type="button"
-            className="landing-mobile-toggle"
-            aria-label={open ? 'Close navigation' : 'Open navigation'}
-            aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? <X size={17} /> : <Menu size={17} />}
-          </button>
-        </div>
-      </div>
+      <nav className={`primary-nav${open ? ' is-open' : ''}`} id="primary-nav" aria-label="Primary navigation">
+        {links.map(([label, id]) => (
+          <a key={id} href={`#${id}`} onClick={(event) => navigateTo(event, id)}>{label}</a>
+        ))}
+      </nav>
 
-      {open ? (
-        <nav className="landing-mobile-nav" aria-label="Mobile landing navigation">
-          {links.map(([label, id]) => (
-            <a key={id} href={`#${id}`} onClick={(event) => { setOpen(false); scrollToSection(event, id) }}>{label}</a>
-          ))}
-          <a href="#season-cta" onClick={(event) => { setOpen(false); scrollToSection(event, 'season-cta') }}>SEASON 1</a>
-          <button type="button" onClick={() => { setOpen(false); onEnter() }}>ENTER CUSTOS <ArrowUpRight size={14} /></button>
-        </nav>
-      ) : null}
+      <a className="header-cta" href="#/defi" onClick={onEnter}>
+        Launch testnet <span aria-hidden="true">↗</span>
+      </a>
     </header>
   )
 }
 
+function HomepageMarketRow({ number, code, name, variant }: { number: string; code: string; name: string; variant: string }) {
+  return (
+    <a className="market-row" href="#/defi?tab=markets">
+      <span className="market-no">{number}</span>
+      <span className="market-code">{code}</span>
+      <span className="market-name">{name}</span>
+      <span className={`market-line ${variant}`} aria-hidden="true"><i /></span>
+      <span className="market-state">24H MARKET</span>
+      <span className="market-arrow" aria-hidden="true">↗</span>
+    </a>
+  )
+}
+
 export default function CustosLandingPage() {
-  const goToMarkets = () => { window.location.hash = '/defi?tab=markets' }
-  const goToSeason = () => { window.location.hash = '/defi?tab=season' }
   const goToTerminal = () => { window.location.hash = '/defi' }
+  const goToSeason = () => { window.location.hash = '/defi?tab=season' }
 
   return (
-    <div className="landing-page">
-      <section id="top" className="landing-hero">
-        <div className="landing-hero-media" aria-hidden="true">
-          <img src="/assets/hero-field.png" alt="" />
-          <div className="landing-hero-wash" />
+    <div className="homepage">
+      <section className="hero" id="top" aria-labelledby="hero-title">
+        <div className="ambient-blocks ambient-blocks--left" aria-hidden="true">
+          <span /><span /><span /><span />
         </div>
+
         <LandingHeader onEnter={goToTerminal} />
 
-        <div className="landing-hero-content">
-          <p className="landing-kicker">REAL MARKETS · GIWA SEPOLIA</p>
-          <h1>
-            <span>Real markets, moving onchain.</span>
-            <em>Gold. Silver. Oil. One unified terminal.</em>
-          </h1>
-          <div className="landing-hero-actions">
-            <button type="button" className="landing-primary-button" onClick={goToMarkets}>Explore live markets <ArrowUpRight size={15} /></button>
-            <button type="button" className="landing-secondary-button" onClick={goToSeason}>Join Season 1 <ArrowUpRight size={14} /></button>
+        <div className="hero-content">
+          <p className="eyebrow"><span className="status-dot" /> GIWA SEPOLIA · PUBLIC TESTNET</p>
+          <h1 id="hero-title">CUSTOS FINANCE</h1>
+          <p className="hero-kicker">RWA EXCHANGE ON GIWA</p>
+          <p className="hero-tagline">REAL ASSETS. VISIBLE PROOF.</p>
+          <p className="hero-description">
+            A unified onchain terminal for real-world assets, spot markets and perpetuals—built for transparent execution from one wallet.
+          </p>
+          <div className="hero-actions">
+            <a className="button button--primary" href="#/defi" onClick={goToTerminal}>
+              Enter Custos <span aria-hidden="true">↗</span>
+            </a>
+            <a className="button button--ghost" href="#markets" onClick={(event) => scrollToSection(event, 'markets')}>
+              Explore markets <span aria-hidden="true">↓</span>
+            </a>
           </div>
-          <p className="landing-disclaimer"><Lock size={12} /> PUBLIC TESTNET · SYNTHETIC ASSETS · NO CASH VALUE</p>
+        </div>
+
+        <div className="hero-art" aria-hidden="true">
+          <LargeBrandSymbol />
+          <span className="art-block art-block--one" />
+          <span className="art-block art-block--two" />
+          <span className="art-block art-block--three" />
+          <span className="art-block art-block--green" />
+        </div>
+
+        <div className="hero-index" aria-hidden="true">01 / 05</div>
+        <div className="hero-scroll" aria-hidden="true"><span /> SCROLL TO EXPLORE</div>
+      </section>
+
+      <section className="ticker" aria-label="Custos system highlights">
+        <div><span>01</span><strong>RWA</strong><small>Pyth-anchored markets</small></div>
+        <div><span>02</span><strong>SPOT</strong><small>Unified collateral</small></div>
+        <div><span>03</span><strong>PERPETUALS</strong><small>One trading terminal</small></div>
+        <div><span>04</span><strong>GIWA</strong><small>Built on testnet</small></div>
+      </section>
+
+      <section className="system section" id="system" aria-labelledby="system-title">
+        <div className="section-label"><span>01</span> THE SYSTEM</div>
+        <div className="section-heading">
+          <h2 id="system-title">ONE WALLET.<br />THREE MARKET LAYERS.</h2>
+          <p>Custos brings fragmented markets into one deliberate flow. Deposit once, move across the stack and keep every position in view.</p>
+        </div>
+
+        <div className="layer-grid">
+          <article className="layer-card layer-card--featured">
+            <div className="card-topline"><span>01</span><span>REAL-WORLD ASSETS</span></div>
+            <div className="layer-glyph layer-glyph--rings" aria-hidden="true" />
+            <h3>RWA</h3>
+            <p>Trade synthetic exposure to gold, silver and oil with transparent oracle anchoring.</p>
+            <a href="#markets" onClick={(event) => scrollToSection(event, 'markets')}>View RWA markets <span>↗</span></a>
+          </article>
+          <article className="layer-card">
+            <div className="card-topline"><span>02</span><span>LIQUID MARKETS</span></div>
+            <div className="layer-glyph layer-glyph--grid" aria-hidden="true" />
+            <h3>SPOT</h3>
+            <p>Move between core assets without leaving the Custos terminal or fragmenting collateral.</p>
+            <a href="#/defi?tab=spot">Open terminal <span>↗</span></a>
+          </article>
+          <article className="layer-card">
+            <div className="card-topline"><span>03</span><span>CAPITAL EFFICIENCY</span></div>
+            <div className="layer-glyph layer-glyph--bars" aria-hidden="true"><i /><i /><i /><i /></div>
+            <h3>PERPETUALS</h3>
+            <p>Express directional views through a focused interface designed for fast market decisions.</p>
+            <a href="#/defi?tab=perpetuals">Explore perps <span>↗</span></a>
+          </article>
         </div>
       </section>
 
-      <section id="journey" className="landing-section landing-flow-section">
-        <div className="landing-section-heading landing-flow-heading">
+      <section className="markets section" id="markets" aria-labelledby="markets-title">
+        <div className="section-label section-label--light"><span>02</span> LIVE MARKET PREVIEW</div>
+        <div className="market-heading">
           <div>
-            <p className="landing-kicker">THE CUSTOS FLOW</p>
-            <h2>One wallet. <span>Three market layers.</span></h2>
+            <p className="eyebrow"><span className="status-dot" /> PYTH-ANCHORED · INDICATIVE</p>
+            <h2 id="markets-title">REAL MARKETS.<br />ONCHAIN ACCESS.</h2>
           </div>
-          <p>Connect once, claim shared tUSDC, follow Pyth real-world reference prices, then use Spot, Liquidity and Perpetuals from one GIWA Sepolia account.</p>
+          <p>Purpose-built market views for the assets people already understand.</p>
         </div>
-        <div className="landing-step-grid">
-          {STEPS.map(({ number, icon: Icon, title, body }) => (
-            <article key={number} className="landing-step-card">
-              <div className="landing-step-meta"><span>{number}</span><Icon size={17} /></div>
-              <h3>{title}</h3>
-              <p>{body}</p>
+
+        <div className="market-list">
+          <HomepageMarketRow number="01" code="XAU" name="GOLD / tUSDC" variant="market-line--one" />
+          <HomepageMarketRow number="02" code="XAG" name="SILVER / tUSDC" variant="market-line--two" />
+          <HomepageMarketRow number="03" code="WTI" name="OIL / tUSDC" variant="market-line--three" />
+        </div>
+        <p className="market-disclaimer">PUBLIC TESTNET · SYNTHETIC ASSETS · NO CASH VALUE</p>
+      </section>
+
+      <section className="proof section" id="proof" aria-labelledby="proof-title">
+        <div className="section-label"><span>03</span> VISIBLE PROOF</div>
+        <div className="proof-layout">
+          <div className="proof-copy">
+            <h2 id="proof-title">BUILT TO MAKE<br />THE SIGNAL VISIBLE.</h2>
+            <p>Price inputs, collateral movement and market access belong in one legible system—not behind layers of interfaces.</p>
+          </div>
+          <div className="proof-items">
+            <article>
+              <span className="proof-no">01</span>
+              <h3>PYTH ANCHORED</h3>
+              <p>Oracle-linked pricing gives each RWA market a transparent reference point.</p>
             </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="benefits" className="landing-section landing-benefits-section">
-        <div className="landing-feature-grid">
-          <article className="landing-feature-card">
-            <div className="landing-feature-label"><ShieldCheck size={16} /> PYTH-ANCHORED</div>
-            <div className="landing-feature-copy">
-              <h2>Every market begins with a real reference.</h2>
-              <p>Gold, Silver and WTI use Pyth reference data for live market context and historical OHLC candles, while the GIWA contracts remain transparent testnet instruments.</p>
-              <button type="button" className="landing-outline-button" onClick={goToMarkets}>Explore real markets <ArrowUpRight size={13} /></button>
-            </div>
-          </article>
-          <article className="landing-feature-card landing-feature-image-card">
-            <img src="/assets/markets/gold.png" alt="Gold bullion" />
-            <div className="landing-feature-image-wash" />
-            <div className="landing-feature-copy">
-              <div className="landing-feature-label"><BarChart3 size={16} /> UNIFIED tUSDC</div>
-              <h2>Spot, liquidity and perpetuals share one test asset.</h2>
-              <p>The same tUSDC contract is used as the Spot quote asset, one-sided LP inventory and Perpetuals collateral, keeping the testnet flow simple.</p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section id="markets" className="landing-section landing-markets-section">
-        <div className="landing-section-heading">
-          <div>
-            <p className="landing-kicker">LIVE MARKET PREVIEW</p>
-            <h2>Choose a real-world reference market.</h2>
-          </div>
-          <button type="button" className="landing-text-button" onClick={goToMarkets}>Open all live markets <ArrowUpRight size={14} /></button>
-        </div>
-        <div className="landing-market-grid">
-          {MARKET_CARDS.map((market) => (
-            <button type="button" key={market.symbol} className="landing-market-card" onClick={goToMarkets}>
-              <div className="landing-market-image"><img src={market.image} alt={market.title} /><span>LIVE</span></div>
-              <div className="landing-market-body">
-                <p className="landing-market-pair">{market.symbol}</p>
-                <h3>{market.title}</h3>
-                <p>{market.category}</p>
-                <div className="landing-market-action">Open market <ArrowUpRight size={13} /></div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section id="season-cta" className="landing-section landing-cta-section">
-        <div className="landing-cta-card">
-          <div className="landing-cta-copy">
-            <div className="landing-feature-label"><BadgeCheck size={16} /> PUBLIC BETA · SEASON 1</div>
-            <h2>Open participation on GIWA Sepolia. Real market data, testnet execution.</h2>
-            <p>rXAU, rXAG, rWTI and tUSDC are synthetic testnet assets. They are not redeemable for physical commodities, cash, securities or any legally enforceable real-world claim. Season points do not guarantee tokens, rewards or monetary value.</p>
-          </div>
-          <div className="landing-cta-actions">
-            <button type="button" className="landing-secondary-button" onClick={goToSeason}>Join Season 1 <ArrowUpRight size={14} /></button>
-            <button type="button" className="landing-primary-button" onClick={goToTerminal}>Enter Custos <ArrowUpRight size={14} /></button>
+            <article>
+              <span className="proof-no">02</span>
+              <h3>UNIFIED tUSDC</h3>
+              <p>One collateral layer keeps the journey between markets direct and understandable.</p>
+            </article>
+            <article>
+              <span className="proof-no">03</span>
+              <h3>GIWA NATIVE</h3>
+              <p>Custos is being developed inside the GIWA ecosystem from testnet to production.</p>
+            </article>
           </div>
         </div>
       </section>
 
-      <footer className="landing-footer">
-        <div className="landing-footer-brand"><LogoMark size={30} /><span>CUSTOS · GIWA SEPOLIA</span></div>
-        <span><Globe2 size={12} /> PYTH CORE = ONCHAIN SETTLEMENT ORACLE</span>
-        <a href="https://sepolia-explorer.giwa.io" target="_blank" rel="noreferrer">EXPLORER <ExternalLink size={11} /></a>
+      <section className="season section" id="season" aria-labelledby="season-title">
+        <div className="season-blocks" aria-hidden="true"><span /><span /><span /></div>
+        <div className="season-copy">
+          <p className="eyebrow"><span className="status-dot" /> SEASON 1 · NOW OPEN</p>
+          <h2 id="season-title">ENTER EARLY.<br />BUILD YOUR SIGNAL.</h2>
+          <p>Explore the testnet, complete the market journey and follow Custos as the next layer comes online.</p>
+          <a className="button button--primary" href="#/defi?tab=season" onClick={goToSeason}>
+            Join Season 1 <span>↗</span>
+          </a>
+        </div>
+        <LargeBrandSymbol className="season-mark" />
+      </section>
+
+      <footer className="site-footer">
+        <div className="footer-brand">
+          <BrandSymbol />
+          <div><strong>CUSTOS FINANCE</strong><small>RWA EXCHANGE ON GIWA</small></div>
+        </div>
+        <div className="footer-links">
+          <a href="#markets" onClick={(event) => scrollToSection(event, 'markets')}>Markets</a>
+          <a href="#proof" onClick={(event) => scrollToSection(event, 'proof')}>Proof</a>
+          <a href="#season" onClick={(event) => scrollToSection(event, 'season')}>Season 1</a>
+        </div>
+        <div className="footer-meta"><span>GIWA SEPOLIA</span><span>TESTNET ONLINE</span><span>© {new Date().getFullYear()} CUSTOS</span></div>
       </footer>
     </div>
   )

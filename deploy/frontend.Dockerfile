@@ -2,6 +2,12 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /workspace
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+    && git config --global url."https://github.com/".insteadOf "git+ssh://git@github.com/" \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY packages/swap-sdk ./packages/swap-sdk
 RUN corepack enable \
     && cd packages/swap-sdk \

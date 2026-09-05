@@ -124,13 +124,20 @@ function pathForTab(tab: WorkspaceTab) {
 
 function LogoMark({ size = 42 }: { size?: number }) {
   return (
-    <img
-      src="/custos-icon.png"
-      alt="Custos Finance"
+    <svg
+      className="defi-logo-mark"
       width={size}
       height={size}
-      className="defi-logo-mark"
-    />
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label="Custos Finance"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="5">
+        <path d="M49 19.5A21 21 0 1 0 49 44.5" />
+        <path d="M41.3 25.1a11.5 11.5 0 1 0 0 13.8" />
+      </g>
+      <path d="M34 32h16.4" stroke="#35b978" strokeWidth="5" />
+    </svg>
   )
 }
 

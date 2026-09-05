@@ -246,10 +246,10 @@
 .defi-logo-mark {
   display: block;
   flex: 0 0 auto;
-  border: 1px solid rgba(194, 242, 222, 0.17);
-  border-radius: 12px;
-  background: #000;
-  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f3fbf6;
 }
 
 .defi-network-card {
@@ -1299,7 +1299,8 @@
   .defi-brand .defi-logo-mark {
     width: 43px;
     height: 43px;
-    border-radius: 11px;
+    border: 0;
+    border-radius: 0;
   }
 
   .defi-brand strong {
@@ -2125,8 +2126,9 @@ body {
 .defi-logo-mark {
   width: 40px;
   height: 40px;
-  border-color: rgba(205, 239, 220, 0.2);
-  border-radius: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .defi-top-nav {
