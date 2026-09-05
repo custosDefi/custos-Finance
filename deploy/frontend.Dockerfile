@@ -2,14 +2,14 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /workspace
 
-COPY v2-sdk ./v2-sdk
+COPY packages/swap-sdk ./v2-sdk
 RUN npm ci --prefix v2-sdk --ignore-scripts \
     && npm run build --prefix v2-sdk
 
-COPY uniswap-interface/package.json uniswap-interface/package-lock.json ./uniswap-interface/
+COPY apps/web/package.json apps/web/package-lock.json ./uniswap-interface/
 RUN npm ci --prefix uniswap-interface --legacy-peer-deps --ignore-scripts
 
-COPY uniswap-interface ./uniswap-interface
+COPY apps/web ./uniswap-interface
 
 ARG VITE_API_BASE
 ARG VITE_CHAIN_ID=1
