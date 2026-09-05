@@ -1,0 +1,10 @@
+{
+  "name": "@custos/launch-bridge",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/compile-protocol.cjs",
+    "deploy:dual": "node scripts/deploy-protocol.cjs",
+    "smoke:local": "node scripts/smoke-test.cjs",
+    "fmt": "forge fmt"
+  }
+}

@@ -9,6 +9,8 @@ import {
   Landmark,
   LayoutDashboard,
   Menu as MenuIcon,
+  Network,
+  Rocket,
   Search,
   ShieldCheck,
   TrendingUp,
@@ -38,6 +40,8 @@ import {
 import PublicBetaPage from './PublicBetaPage'
 import CustosPerpTerminal from './CustosPerpTerminal'
 import { RwaExchangeConsole } from './RwaExchange'
+import CustosBridgePage from './CustosBridgePage'
+import CustosLaunchpadPage from './CustosLaunchpadPage'
 
 type WorkspaceTab =
   | 'swap'
@@ -51,6 +55,8 @@ type WorkspaceTab =
   | 'transparency'
   | 'rwa'
   | 'perpetuals'
+  | 'launchpad'
+  | 'bridge'
 
 type Quote = {
   price?: number
@@ -80,6 +86,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'liquidity', label: 'Spot Liquidity', description: 'Manage synthetic pools', icon: Droplets },
   { id: 'markets', label: 'Real Markets', description: 'Pyth reference markets', icon: Search },
   { id: 'perpetuals', label: 'Perpetuals', description: 'Leveraged testnet markets', icon: TrendingUp },
+  { id: 'launchpad', label: 'Launchpad', description: 'Launch tokens onchain', icon: Rocket },
+  { id: 'bridge', label: 'Bridge', description: 'Relay messages cross-chain', icon: Network },
   { id: 'portfolio', label: 'Portfolio', description: 'Wallet, positions and activity', icon: Wallet },
   { id: 'season', label: 'Season 1', description: 'Verified participation', icon: Trophy },
   { id: 'transparency', label: 'Transparency', description: 'Contracts and proof data', icon: ShieldCheck },
@@ -325,6 +333,8 @@ function WorkspaceContent({
   if (tab === 'season') return <PublicBetaPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
   if (tab === 'transparency') return <SpotTransparencyPage />
   if (tab === 'rwa') return <RwaExchangeConsole />
+  if (tab === 'launchpad') return <CustosLaunchpadPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+  if (tab === 'bridge') return <CustosBridgePage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
   return (
     <div className="defi-fade-in">
       <SectionHeading
