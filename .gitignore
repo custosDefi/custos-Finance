@@ -13,3 +13,5 @@
 **/coverage/
 ui-screenshots/
 .DS_Store
+apps/api/data/
+runtime-data/

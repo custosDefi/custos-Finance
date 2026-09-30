@@ -5,6 +5,7 @@ import DarkModeQueryParamReader from '../theme/DarkModeQueryParamReader'
 import Web3ReactManager from '../components/Web3ReactManager'
 import DefiShell from '../custos/DefiShell'
 import CustosLandingPage from '../custos/CustosLandingPage'
+import RealityApp from '../custos/RealityApp'
 
 /**
  * Custos application routes.
@@ -21,7 +22,9 @@ export default function App() {
         <Route component={GoogleAnalyticsReporter} />
         <Route component={DarkModeQueryParamReader} />
         <Switch>
-          <Route exact path={['/', '/index.html']} component={CustosLandingPage} />
+          <Route exact path={['/', '/index.html', '/defi/launchpad']} component={RealityApp} />
+          <Route path="/reality" component={RealityApp} />
+          <Route exact path="/legacy-home" component={CustosLandingPage} />
           <Route
             path={['/defi', '/swap', '/send', '/pool', '/find', '/create', '/add', '/remove', '/perp']}
             render={() => (

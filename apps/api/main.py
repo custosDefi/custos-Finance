@@ -38,6 +38,7 @@ from network_config import network_config
 from perp_market import router as perp_router, start_perp_stream, stop_perp_stream
 from real_market import router as real_market_router
 from public_beta import router as public_beta_router
+from reality import router as reality_router, start_reality_index, stop_reality_index
 
 DB_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "rwa_exchange.db")
 MARKET_CONFIG_PATH = BASE_DIR / "market-config.json"
@@ -80,6 +81,7 @@ app.add_middleware(
 app.include_router(perp_router)
 app.include_router(real_market_router)
 app.include_router(public_beta_router)
+app.include_router(reality_router)
 
 
 # ---------------------------------------------------------------------------
@@ -551,10 +553,12 @@ def market_row(conn: sqlite3.Connection, pool_id: int) -> sqlite3.Row:
 async def startup() -> None:
     init_db()
     await start_perp_stream()
+    await start_reality_index()
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
+    await stop_reality_index()
     await stop_perp_stream()
 
 

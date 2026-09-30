@@ -9,6 +9,13 @@ services:
       PORT: "8080"
       DATABASE_PATH: /data/rwa_exchange.db
       BETA_DATABASE_PATH: /data/kelq_beta.db
+      REALITY_DATA_DIR: /data/reality
+      REALITY_PUBLIC_ORIGIN: ${REALITY_PUBLIC_ORIGIN:-https://www.custosfinance.xyz}
+      REALITY_ADMIN_WALLETS: ${REALITY_ADMIN_WALLETS:-}
+      REALITY_LAUNCHPAD_ADDRESS: ${REALITY_LAUNCHPAD_ADDRESS:-}
+      REALITY_PLATFORM_TOKEN: ${REALITY_PLATFORM_TOKEN:-}
+      REALITY_SWAP_ROUTER: ${REALITY_SWAP_ROUTER:-}
+      REALITY_SWAP_FACTORY: ${REALITY_SWAP_FACTORY:-}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
       GIWA_RPC_URL: ${GIWA_RPC_URL:-https://sepolia-rpc.giwa.io}
       GIWA_FLASHBLOCKS_RPC_URL: ${GIWA_FLASHBLOCKS_RPC_URL:-https://sepolia-rpc-flashblocks.giwa.io}
@@ -35,8 +42,8 @@ services:
       args:
         NGINX_CONFIG: deploy/nginx.vm.conf
         VITE_API_BASE: ${VITE_API_BASE}
-        VITE_CHAIN_ID: ${VITE_CHAIN_ID:-1}
-        VITE_NETWORK_URL: ${VITE_NETWORK_URL:-https://cloudflare-eth.com}
+        VITE_CHAIN_ID: ${VITE_CHAIN_ID:-91342}
+        VITE_NETWORK_URL: ${VITE_NETWORK_URL:-https://sepolia-rpc.giwa.io}
         VITE_GIWA_RPC: ${VITE_GIWA_RPC:-https://sepolia-rpc.giwa.io}
         VITE_GIWA_EXPLORER: ${VITE_GIWA_EXPLORER:-https://sepolia-explorer.giwa.io}
         VITE_GIWA_CHAIN_ID: ${VITE_GIWA_CHAIN_ID:-91342}
