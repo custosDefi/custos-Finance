@@ -1,3 +1,4 @@
+import useLiquidityPath from '../../hooks/useLiquidityPath'
 import React, { useContext, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeContext } from 'styled-components'
@@ -22,6 +23,7 @@ import { Dots } from '../../components/swap/styleds'
 import { useTranslation } from 'react-i18next'
 
 export default function Pool() {
+  const liquidityPath = useLiquidityPath()
   const theme = useContext(ThemeContext)
   const { account } = useActiveWeb3React()
 
@@ -59,7 +61,7 @@ export default function Pool() {
       <AppBody>
         <SwapPoolTabs active={'pool'} />
         <AutoColumn gap="lg" justify="center">
-          <ButtonPrimary id="join-pool-button" as={Link} style={{ padding: 16 }} to="/add/ETH">
+          <ButtonPrimary id="join-pool-button" as={Link} style={{ padding: 16 }} to={liquidityPath("/add/ETH")}>
             <Text fontWeight={500} fontSize={20}>
             {t('addLiquidity')}
             </Text>
@@ -102,7 +104,7 @@ export default function Pool() {
             <div>
               <Text textAlign="center" fontSize={14} style={{ padding: '.5rem 0 .5rem 0' }}>
                 {t('dontSee')}{' '}
-                <StyledInternalLink id="import-pool-link" to="/find">
+                <StyledInternalLink id="import-pool-link" to={liquidityPath("/find")}>
                   {t('importit')}
                 </StyledInternalLink>
               </Text>

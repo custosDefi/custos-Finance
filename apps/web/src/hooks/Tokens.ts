@@ -8,6 +8,12 @@ import { isAddress } from '../utils'
 
 import { useActiveWeb3React } from './index'
 import { useBytes32TokenContract, useTokenContract } from './useContract'
+import bundledTokens from '../../public/tokenlist.json'
+
+const giwaTokens = Object.fromEntries(bundledTokens.tokens.filter(token => token.chainId === 91342).map(token => {
+  const currency = new Token(91342, token.address, token.decimals, token.symbol, token.name)
+  return [currency.address, currency]
+}))
 
 export function useAllTokens(): { [address: string]: Token } {
   const { chainId } = useActiveWeb3React()
@@ -26,7 +32,7 @@ export function useAllTokens(): { [address: string]: Token } {
           },
           // must make a copy because reduce modifies the map, and we do not
           // want to make a copy in every iteration
-          { ...allTokens[chainId] }
+          { ...(chainId === 91342 ? giwaTokens : {}), ...allTokens[chainId] }
         )
     )
   }, [chainId, userAddedTokens, allTokens])

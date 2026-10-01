@@ -1,3 +1,4 @@
+import useLiquidityPath from '../../hooks/useLiquidityPath'
 import { Currency, ETHER, JSBI, TokenAmount } from 'custoswap-sdk'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Plus } from 'react-feather'
@@ -26,7 +27,8 @@ enum Fields {
 }
 
 export default function PoolFinder() {
-  const { account } = useActiveWeb3React()
+  const liquidityPath = useLiquidityPath()
+  const { account, chainId } = useActiveWeb3React()
   const { t } = useTranslation()
 
   const [showSearch, setShowSearch] = useState<boolean>(false)
@@ -136,7 +138,7 @@ export default function PoolFinder() {
           </ColumnCenter>
         )}
 
-        {currency0 && currency1 ? (
+        {currency0 && currency1 && chainId === 91342 ? <LightCard padding="24px"><Text textAlign="center">This pair is selected. Custos V2 pool contracts are not deployed on GIWA Sepolia yet.</Text></LightCard> : currency0 && currency1 ? (
           pairState === PairState.EXISTS ? (
             hasPosition && pair ? (
               <MinimalPositionCard pair={pair} border="1px solid #CED0D9" />
@@ -144,7 +146,7 @@ export default function PoolFinder() {
               <LightCard padding="45px 10px">
                 <AutoColumn gap="sm" justify="center">
                   <Text textAlign="center">{t('noLiquidityInPool')}</Text>
-                  <StyledInternalLink to={`/add/${currencyId(currency0)}/${currencyId(currency1)}`}>
+                  <StyledInternalLink to={liquidityPath(`/add/${currencyId(currency0)}/${currencyId(currency1)}`)}>
                     <Text textAlign="center">{t('addLiquidityAction')}</Text>
                   </StyledInternalLink>
                 </AutoColumn>
@@ -154,7 +156,7 @@ export default function PoolFinder() {
             <LightCard padding="45px 10px">
               <AutoColumn gap="sm" justify="center">
                 <Text textAlign="center">{t('noPoolFound')}</Text>
-                <StyledInternalLink to={`/add/${currencyId(currency0)}/${currencyId(currency1)}`}>
+                <StyledInternalLink to={liquidityPath(`/add/${currencyId(currency0)}/${currencyId(currency1)}`)}>
                   {t('createPool')}
                 </StyledInternalLink>
               </AutoColumn>

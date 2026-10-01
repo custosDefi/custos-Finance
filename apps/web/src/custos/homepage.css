@@ -1,3 +1,4 @@
+/* Reality Launchpad story follows the existing black, green and ivory identity. */
 .homepage,
 .homepage * {
   box-sizing: border-box;
@@ -1146,3 +1147,40 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.homepage .hero h1.reality-hero-title{font-size:clamp(44px,5.7vw,88px);letter-spacing:-.055em;line-height:1.04;white-space:normal;margin-top:25px}
+.homepage .hero-kicker{font-size:12px;letter-spacing:.22em;margin-top:0}
+.homepage .hero-tagline{font-size:9px;line-height:1.7;letter-spacing:.18em}
+.homepage .hero-description{margin-top:25px}
+.homepage .reality-story-prompts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.homepage .reality-story-prompts article{padding:26px 0;border-top:1px solid #caccc5}
+.homepage .reality-story-prompts span,.homepage .reality-feed-label{font-size:9px;letter-spacing:.16em;font-weight:650;color:#647067}
+.homepage .reality-story-prompts h3{font-size:29px;letter-spacing:-.04em;margin:25px 0 12px;font-weight:500}
+.homepage .reality-story-prompts p{color:#737870;font-size:14px;line-height:1.8;max-width:280px}
+.homepage .reality-story-feed{margin-top:52px}
+.homepage .reality-story-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:20px}
+.homepage .reality-story-card{border:1px solid #ced2ca;display:block;overflow:hidden;background:#edece6}
+.homepage .reality-story-card>img{display:block;width:100%;height:260px;object-fit:cover}
+.homepage .reality-story-card>div{padding:24px}
+.homepage .reality-story-card span{font-size:9px;letter-spacing:.14em;color:#53715e}
+.homepage .reality-story-card h3{font-size:26px;margin:14px 0 8px;overflow-wrap:anywhere}
+.homepage .reality-story-card p{color:#6d766c;font-size:14px;line-height:1.7}
+.homepage .reality-story-card small{color:#215f43;font-size:11px}
+.homepage .reality-manifesto{font-size:clamp(26px,3.5vw,52px);line-height:1.25;letter-spacing:-.035em;border-top:1px solid #caccc5;padding-top:42px;margin:65px 0 0}
+.homepage .reality-rules{margin:35px 0 0;color:#6c756b;font-size:11px;line-height:1.8}
+.homepage .reality-project-row{grid-template-columns:35px 65px 1fr 1.4fr 110px 24px}
+.homepage .reality-project-row>img{width:65px;height:65px;object-fit:cover}
+.homepage .reality-project-row .market-code{font-size:23px;overflow-wrap:anywhere}
+.homepage .reality-project-row .market-code small{display:block;font-size:12px;color:#90918e;margin-top:8px;letter-spacing:0}
+.homepage .reality-project-row .market-name{font-size:14px;line-height:1.7;color:#90918e;overflow-wrap:anywhere}
+.homepage .reality-feed-message{color:#90918e;padding:26px 0;line-height:1.8}
+@media(max-width:1080px){.homepage .reality-project-row{grid-template-columns:30px 55px 1fr 1fr 85px 20px;gap:15px}}
+@media(max-width:760px){.homepage .reality-story-prompts,.homepage .reality-story-grid{grid-template-columns:1fr}.homepage .reality-story-prompts{gap:0}.homepage .reality-story-card>img{height:260px}.homepage .hero h1.reality-hero-title{font-size:clamp(40px,10vw,70px)}.homepage .hero-kicker{font-size:10px}.homepage .reality-project-row{grid-template-columns:22px 48px 1fr 20px;gap:12px}.homepage .reality-project-row>img{width:48px;height:48px}.homepage .reality-project-row .market-name,.homepage .reality-project-row .market-state{display:none}.homepage .reality-project-row .market-code{font-size:20px}}
+
+.homepage .reality-story-grid:has(>.reality-story-card:only-child){display:block}
+.homepage .reality-story-card:only-child{display:grid;grid-template-columns:1fr 1fr}
+.homepage .reality-story-card:only-child>img{height:340px}
+.homepage .reality-story-card:only-child>div{display:flex;flex-direction:column;justify-content:center;padding:42px}
+.homepage .reality-companion-card:only-child{grid-template-columns:minmax(0,405px) minmax(0,1fr)}
+.homepage .reality-companion-card:only-child>img{height:auto;aspect-ratio:405/414}
+@media(max-width:760px){.homepage .reality-story-card:only-child{display:block}.homepage .reality-story-card:only-child>img{height:280px}.homepage .reality-story-card:only-child>div{padding:24px}}

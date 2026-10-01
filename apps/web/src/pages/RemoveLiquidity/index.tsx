@@ -1,3 +1,4 @@
+import useLiquidityPath from '../../hooks/useLiquidityPath'
 import { splitSignature } from '@ethersproject/bytes'
 import { Contract } from '@ethersproject/contracts'
 import { TransactionResponse } from '@ethersproject/providers'
@@ -49,6 +50,7 @@ export default function RemoveLiquidity({
     params: { currencyIdA, currencyIdB }
   }
 }: RouteComponentProps<{ currencyIdA: string; currencyIdB: string }>) {
+  const liquidityPath = useLiquidityPath()
   const [currencyA, currencyB] = [useCurrency(currencyIdA) ?? undefined, useCurrency(currencyIdB) ?? undefined]
   const { account, chainId, library } = useActiveWeb3React()
   const weth = chainId ? WETH[chainId] : undefined
@@ -432,9 +434,9 @@ export default function RemoveLiquidity({
   const handleSelectCurrencyA = useCallback(
     (currency: Currency) => {
       if (currencyIdB && currencyId(currency) === currencyIdB) {
-        history.push(`/remove/${currencyId(currency)}/${currencyIdA}`)
+        history.push(liquidityPath(`/remove/${currencyId(currency)}/${currencyIdA}`))
       } else {
-        history.push(`/remove/${currencyId(currency)}/${currencyIdB}`)
+        history.push(liquidityPath(`/remove/${currencyId(currency)}/${currencyIdB}`))
       }
     },
     [currencyIdA, currencyIdB, history]
@@ -442,9 +444,9 @@ export default function RemoveLiquidity({
   const handleSelectCurrencyB = useCallback(
     (currency: Currency) => {
       if (currencyIdA && currencyId(currency) === currencyIdA) {
-        history.push(`/remove/${currencyIdB}/${currencyId(currency)}`)
+        history.push(liquidityPath(`/remove/${currencyIdB}/${currencyId(currency)}`))
       } else {
-        history.push(`/remove/${currencyIdA}/${currencyId(currency)}`)
+        history.push(liquidityPath(`/remove/${currencyIdA}/${currencyId(currency)}`))
       }
     },
     [currencyIdA, currencyIdB, history]
@@ -558,17 +560,17 @@ export default function RemoveLiquidity({
                       <RowBetween style={{ justifyContent: 'flex-end' }}>
                         {oneCurrencyIsETH ? (
                           <StyledInternalLink
-                            to={`/remove/${currencyA === ETHER ? weth.address : currencyIdA}/${
+                            to={liquidityPath(`/remove/${currencyA === ETHER ? weth.address : currencyIdA}/${
                               currencyB === ETHER ? weth.address : currencyIdB
-                            }`}
+                            }`)}
                           >
                             {t('receiveWETH')}
                           </StyledInternalLink>
                         ) : oneCurrencyIsWETH ? (
                           <StyledInternalLink
-                            to={`/remove/${
+                            to={liquidityPath(`/remove/${
                               currencyA && currencyEquals(currencyA, weth) ? 'ETH' : currencyIdA
-                            }/${currencyB && currencyEquals(currencyB, weth) ? 'ETH' : currencyIdB}`}
+                            }/${currencyB && currencyEquals(currencyB, weth) ? 'ETH' : currencyIdB}`)}
                           >
                             {t('receiveETH')}
                           </StyledInternalLink>

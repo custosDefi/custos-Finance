@@ -38,7 +38,7 @@ from network_config import network_config
 from perp_market import router as perp_router, start_perp_stream, stop_perp_stream
 from real_market import router as real_market_router
 from public_beta import router as public_beta_router
-from reality import router as reality_router, start_reality_index, stop_reality_index
+from reality import router as reality_router, start_reality_index, stop_reality_index, close_rpc
 
 DB_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "rwa_exchange.db")
 MARKET_CONFIG_PATH = BASE_DIR / "market-config.json"
@@ -559,6 +559,7 @@ async def startup() -> None:
 @app.on_event("shutdown")
 async def shutdown() -> None:
     await stop_reality_index()
+    await close_rpc()
     await stop_perp_stream()
 
 

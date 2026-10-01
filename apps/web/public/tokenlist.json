@@ -1,11 +1,11 @@
 {
   "name": "Custos Swap",
-  "logoURI": "http://127.0.0.1:3001/custos-icon.png",
+  "logoURI": "/custos-reality-mark.svg",
   "keywords": [
     "defi",
     "local"
   ],
-  "timestamp": "2026-08-28T10:35:24.361Z",
+  "timestamp": "2026-10-01T05:00:00.000Z",
   "tokens": [
     {
       "chainId": 47805,
@@ -30,11 +30,46 @@
       "symbol": "WETH",
       "decimals": 18,
       "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/info/logo.png"
+    },
+    {
+      "chainId": 91342,
+      "address": "0x4200000000000000000000000000000000000006",
+      "name": "Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18
+    },
+    {
+      "chainId": 91342,
+      "address": "0xaf9856DC884c50d4355944C9bB383449EF64aEc6",
+      "name": "Test USDC",
+      "symbol": "tUSDC",
+      "decimals": 6
+    },
+    {
+      "chainId": 91342,
+      "address": "0x6F20141BD8ADA8cb2DA23900041268B003c359DB",
+      "name": "KELQ Synthetic Gold",
+      "symbol": "rXAU",
+      "decimals": 18
+    },
+    {
+      "chainId": 91342,
+      "address": "0xbEbc44bD8bF215a0E5f18Ed0db4D3910B9fB12D1",
+      "name": "KELQ Synthetic Silver",
+      "symbol": "rXAG",
+      "decimals": 18
+    },
+    {
+      "chainId": 91342,
+      "address": "0x86c54DA4936aD3bBC01a6329aC1f77343628Ad01",
+      "name": "KELQ Synthetic WTI",
+      "symbol": "rWTI",
+      "decimals": 18
     }
   ],
   "version": {
     "major": 2,
-    "minor": 1,
+    "minor": 2,
     "patch": 0
   }
 }

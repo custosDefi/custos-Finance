@@ -367,7 +367,7 @@ export default function DefiShell() {
 
   const go = (next: WorkspaceTab) => {
     setNavOpen(false)
-    history.push(pathForTab(next))
+    history.push(next==='launchpad'?'/reality':pathForTab(next))
   }
 
   const routePath = location.pathname
@@ -400,6 +400,7 @@ export default function DefiShell() {
                 {label}
               </button>
             ))}
+            <a className="defi-top-nav-item" href="https://www.custosfinance.xyz/#/defi?tab=nft" target="_blank" rel="noopener noreferrer">NFT Mint ↗</a>
           </nav>
           <div className="defi-topbar-right">
             <div className="defi-top-network"><span className="defi-status-dot" />{networkLabel}</div>

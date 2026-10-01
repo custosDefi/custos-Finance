@@ -1,3 +1,4 @@
+import useLiquidityPath from '../../hooks/useLiquidityPath'
 import { BigNumber } from '@ethersproject/bignumber'
 import { TransactionResponse } from '@ethersproject/providers'
 import { Currency, currencyEquals, ETHER, TokenAmount, WETH } from 'custoswap-sdk'
@@ -45,6 +46,7 @@ export default function AddLiquidity({
   },
   history
 }: RouteComponentProps<{ currencyIdA?: string; currencyIdB?: string }>) {
+  const liquidityPath = useLiquidityPath()
   const { account, chainId, library } = useActiveWeb3React()
   const theme = useContext(ThemeContext)
   const { t } = useTranslation()
@@ -275,9 +277,9 @@ export default function AddLiquidity({
     (currencyA: Currency) => {
       const newCurrencyIdA = currencyId(currencyA)
       if (newCurrencyIdA === currencyIdB) {
-        history.push(`/add/${currencyIdB}/${currencyIdA}`)
+        history.push(liquidityPath(`/add/${currencyIdB}/${currencyIdA}`))
       } else {
-        history.push(`/add/${newCurrencyIdA}/${currencyIdB}`)
+        history.push(liquidityPath(`/add/${newCurrencyIdA}/${currencyIdB}`))
       }
     },
     [currencyIdB, history, currencyIdA]
@@ -287,12 +289,12 @@ export default function AddLiquidity({
       const newCurrencyIdB = currencyId(currencyB)
       if (currencyIdA === newCurrencyIdB) {
         if (currencyIdB) {
-          history.push(`/add/${currencyIdB}/${newCurrencyIdB}`)
+          history.push(liquidityPath(`/add/${currencyIdB}/${newCurrencyIdB}`))
         } else {
-          history.push(`/add/${newCurrencyIdB}`)
+          history.push(liquidityPath(`/add/${newCurrencyIdB}`))
         }
       } else {
-        history.push(`/add/${currencyIdA ? currencyIdA : 'ETH'}/${newCurrencyIdB}`)
+        history.push(liquidityPath(`/add/${currencyIdA ? currencyIdA : 'ETH'}/${newCurrencyIdB}`))
       }
     },
     [currencyIdA, history, currencyIdB]

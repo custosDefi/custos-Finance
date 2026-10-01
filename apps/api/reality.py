@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Literal
 import httpx
 from eth_account import Account
+from eth_account.messages import encode_typed_data
 from eth_account.messages import encode_defunct
-from eth_abi import decode
+from eth_abi import decode, encode
+from eth_abi.exceptions import DecodingError
+from decimal import Decimal, InvalidOperation
 from eth_utils import keccak
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
@@ -30,16 +33,23 @@ reactions=Table('reality_reactions',metadata,Column('id',String,primary_key=True
 comments=Table('reality_comments',metadata,Column('id',String,primary_key=True),Column('asset_id',String,ForeignKey('reality_assets.id'),nullable=False),Column('wallet',String,nullable=False),Column('body',Text,nullable=False),Column('created_at',Integer,nullable=False))
 valuations=Table('reality_valuations',metadata,Column('id',String,primary_key=True),Column('asset_id',String,ForeignKey('reality_assets.id'),nullable=False),Column('wallet',String,nullable=False),Column('amount',Float,nullable=False),UniqueConstraint('asset_id','wallet'))
 audits=Table('reality_audits',metadata,Column('id',String,primary_key=True),Column('asset_id',String,nullable=False),Column('wallet',String,nullable=False),Column('decision',String,nullable=False),Column('note',Text,nullable=False),Column('created_at',Integer,nullable=False))
+moderation=Table('reality_moderation',metadata,Column('asset_id',String,ForeignKey('reality_assets.id'),primary_key=True),Column('status',String,nullable=False),Column('reason',Text,nullable=False),Column('wallet',String,nullable=False),Column('updated_at',Integer,nullable=False))
 runtime_settings=Table('reality_settings',metadata,Column('key',String,primary_key=True),Column('value',Text,nullable=False))
 trades=Table('reality_trades',metadata,Column('id',String,primary_key=True),Column('launch_id',Integer,nullable=False),Column('block_number',Integer,nullable=False),Column('timestamp',Integer,nullable=False),Column('wallet',String,nullable=False),Column('side',String,nullable=False),Column('quote_amount',String,nullable=False),Column('token_amount',String,nullable=False),Column('quote_reserve',String,nullable=False),Column('token_reserve',String,nullable=False),Column('tx_hash',String,nullable=False))
 _engine=None
+season_profiles=Table('reality_season_profiles',metadata,Column('wallet',String,primary_key=True),Column('code',String,unique=True,nullable=False),Column('inviter',String,nullable=False),Column('x_handle',String,nullable=False),Column('x_status',String,nullable=False),Column('created_at',Integer,nullable=False))
+x_visits=Table('reality_x_visits',metadata,Column('wallet',String,primary_key=True),Column('created_at',Integer,nullable=False))
+account_profiles=Table('reality_account_profiles',metadata,Column('wallet',String,primary_key=True),Column('display_name',String(40),nullable=False))
+stake_events=Table('reality_stake_events',metadata,Column('id',String,primary_key=True),Column('wallet',String,nullable=False),Column('side',String,nullable=False),Column('eth_amount',String,nullable=False),Column('cfi_amount',String,nullable=False),Column('tx_hash',String,nullable=False),Column('block_number',Integer,nullable=False),Column('timestamp',Integer,nullable=False))
+launch_listings=Table('reality_launch_listings',metadata,Column('asset_id',String,primary_key=True),Column('timestamp',Integer,nullable=False),Column('block_number',Integer,nullable=False))
+
 
 def engine():
     global _engine
     if _engine is None:
         url=os.getenv('REALITY_DATABASE_URL','').strip()
         if os.getenv('K_SERVICE') and (not url.startswith('postgresql') or not os.getenv('REALITY_GCS_BUCKET')):
-            raise HTTPException(503,'Cloud Run 需要配置持久化 PostgreSQL 和 GCS 存储')
+            raise HTTPException(503,'Cloud Run requires persistent PostgreSQL and GCS storage')
         if not url:
             root=Path(os.getenv('REALITY_DATA_DIR',str(Path(__file__).parent/'data'/'reality'))).resolve()
             root.mkdir(parents=True,exist_ok=True)
@@ -62,30 +72,94 @@ def config():
             'explorer':'https://sepolia-explorer.giwa.io','testnet':True,
             'launchpad':os.getenv('REALITY_LAUNCHPAD_ADDRESS','') or stored.get('launchpad',''),'platform_token':os.getenv('REALITY_PLATFORM_TOKEN','') or stored.get('platform_token',''),
             'swap_router':os.getenv('REALITY_SWAP_ROUTER','') or stored.get('swap_router',''),'swap_factory':os.getenv('REALITY_SWAP_FACTORY','') or stored.get('swap_factory',''),
+            'cfi_staking':os.getenv('REALITY_CFI_STAKING','') or stored.get('cfi_staking',''),
+            'cfi_price_source':os.getenv('REALITY_CFI_PRICE_SOURCE','pyth'),
+            'cfi_start_block':int(os.getenv('REALITY_CFI_START_BLOCK','0') or '0') or int(stored.get('cfi_start_block','0')),
             'weth':'0x4200000000000000000000000000000000000006','admin_configured':bool(admins())}
+class BridgeRpc(BaseModel):
+    jsonrpc:Literal['2.0']='2.0'
+    id:int|str|None=1
+    method:str
+    params:list=Field(default_factory=list,max_length=8)
+
+class OriginalSeasonEntry(BaseModel):
+    rank:int=Field(ge=1)
+    wallet:str=Field(pattern=r'^0x[0-9a-fA-F]{40}$')
+    points:int=Field(ge=0)
+    verifiedTransactions:int=Field(ge=0)
+    qualifiedReferrals:int=Field(ge=0)
+class OriginalSeasonBoard(BaseModel):
+    season:Literal['S1']
+    entries:list[OriginalSeasonEntry]=Field(max_length=100)
+_original_season_cache=None
+_original_season_task=None
+
+async def fetch_original_season():
+    global _original_season_cache
+    url='https://www.custosfinance.xyz/api/beta/leaderboard?limit=100'
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response=await client.get(url);response.raise_for_status()
+            board=OriginalSeasonBoard.model_validate(response.json()).model_dump()
+        board.update(source='original_custos',source_url='https://www.custosfinance.xyz',updated_at=now(),stale=False)
+        _original_season_cache=board
+        return board
+    except (httpx.HTTPError,ValueError):
+        if _original_season_cache and now()-_original_season_cache['updated_at']<300:
+            return {**_original_season_cache,'stale':True}
+        raise HTTPException(503,'Original Custos Season 1 is temporarily unavailable. Retry later.')
+
+@router.get('/season/original-leaderboard')
+async def original_season_leaderboard():
+    global _original_season_task
+    if _original_season_cache and now()-_original_season_cache['updated_at']<30:return _original_season_cache
+    if _original_season_task is None:_original_season_task=asyncio.create_task(fetch_original_season())
+    task=_original_season_task
+    try:return await asyncio.shield(task)
+    finally:
+        if task.done() and _original_season_task is task:_original_season_task=None
+
+BRIDGE_READ_METHODS={'eth_chainId','eth_blockNumber','eth_getBalance','eth_getCode','eth_getTransactionReceipt','eth_getTransactionByHash','eth_getBlockByNumber','eth_getBlockByHash','eth_getLogs','eth_getProof','eth_getStorageAt','eth_call','eth_estimateGas','eth_gasPrice','eth_maxPriorityFeePerGas','eth_feeHistory','eth_getTransactionCount'}
+@router.post('/bridge/rpc/{network}')
+async def bridge_rpc(network:Literal['sepolia','giwa'],body:BridgeRpc):
+    if body.method not in BRIDGE_READ_METHODS:raise HTTPException(400,'Only read-only bridge RPC methods are allowed')
+    if len(json.dumps(body.params))>32768:raise HTTPException(400,'RPC parameters too large')
+    endpoint=os.getenv('SEPOLIA_RPC_URL','https://ethereum-sepolia-rpc.publicnode.com') if network=='sepolia' else os.getenv('GIWA_RPC_URL','https://sepolia-rpc.giwa.io')
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response=await client.post(endpoint,json=body.model_dump())
+            response.raise_for_status();result=response.json()
+        if not isinstance(result,dict) or ('result' not in result and 'error' not in result):raise ValueError('Invalid RPC response')
+        return result
+    except (httpx.HTTPError,ValueError):raise HTTPException(503,'Bridge RPC temporarily unavailable. Retry later.')
+
 def wallet_auth(request:Request):
     value=request.headers.get('authorization','')
-    if not value.startswith('Bearer '): raise HTTPException(401,'请连接钱包并签名登录')
+    if not value.startswith('Bearer '): raise HTTPException(401,'Connect your wallet and sign in')
     digest=hashlib.sha256(value[7:].encode()).hexdigest()
     with engine().connect() as db: row=db.execute(select(sessions).where(sessions.c.hash==digest,sessions.c.expires_at>now())).mappings().first()
-    if not row: raise HTTPException(401,'登录已过期，请重新签名')
+    if not row: raise HTTPException(401,'Session expired. Please sign in again')
     return row['wallet']
 def admin_auth(wallet=Depends(wallet_auth)):
-    if wallet not in admins(): raise HTTPException(403,'仅管理员可操作')
+    if wallet not in admins(): raise HTTPException(403,'Administrator access required')
     return wallet
+def visible_listing():
+    return ~assets.c.id.in_(select(moderation.c.asset_id).where(moderation.c.status=='delisted'))
+
 def find_asset(db,id):
     row=db.execute(select(assets).where(assets.c.id==id)).mappings().first()
-    if not row: raise HTTPException(404,'项目不存在')
+    if not row: raise HTTPException(404,'Project not found')
     return dict(row)
 def own(row,wallet):
-    if row['wallet']!=wallet: raise HTTPException(403,'仅项目创建者可操作')
+    if row['wallet']!=wallet: raise HTTPException(403,'Only the project creator may do this')
 def check_upload(db,id,wallet,private=None):
     row=db.execute(select(uploads).where(uploads.c.id==id,uploads.c.wallet==wallet)).mappings().first()
-    if not row or (private is not None and bool(row['private'])!=private): raise HTTPException(400,'附件不存在、无权限或类型不符')
+    if not row or (private is not None and bool(row['private'])!=private): raise HTTPException(400,'Attachment missing, inaccessible or wrong type')
     return row
 def image_url(id): return '/api/reality/media/'+id
 def enrich(db,row,wallet=''):
-    result=dict(row);result['image_url']=image_url(row['image_id']);result['verified']=row['review_status']=='approved'
+    result=dict(row);m=db.execute(select(moderation).where(moderation.c.asset_id==row['id'])).mappings().first();result['listing_status']=m['status'] if m else 'listed';result['moderation_reason']=m['reason'] if m else '';result['image_url']=image_url(row['image_id']);result['verified']=row['review_status']=='approved'
+    result['issued_at']=db.execute(select(launch_listings.c.timestamp).where(launch_listings.c.asset_id==row['id'])).scalar()
     # Verification is only computed from the server-controlled review result.
     for kind in ('love','collect','watch'):
         result[kind+'_count']=db.execute(select(func.count()).select_from(reactions).where(reactions.c.asset_id==row['id'],reactions.c.kind==kind)).scalar()
@@ -109,24 +183,65 @@ def challenge(body:Challenge,request:Request):
     with engine().begin() as db:
         db.execute(delete(nonces).where(nonces.c.expires_at<stamp));db.execute(delete(sessions).where(sessions.c.expires_at<stamp))
         existing=db.execute(select(func.count()).select_from(nonces).where(nonces.c.wallet==wallet)).scalar()
-        if existing>=5: raise HTTPException(429,'请求过于频繁，请五分钟后重试')
+        if existing>=5: raise HTTPException(429,'Too many requests. Retry in five minutes')
         db.execute(insert(nonces).values(id=id,wallet=wallet,message=message,expires_at=stamp+300))
     return {'id':id,'message':message}
 @router.post('/auth/login')
 def login(body:Login):
     with engine().begin() as db:
         row=db.execute(select(nonces).where(nonces.c.id==body.id,nonces.c.expires_at>now())).mappings().first()
-        if not row: raise HTTPException(401,'签名请求已过期或已使用')
+        if not row: raise HTTPException(401,'Sign-in challenge expired or already used')
         try: address=Account.recover_message(encode_defunct(text=row['message']),signature=body.signature).lower()
-        except Exception: raise HTTPException(401,'签名无效')
-        if address!=row['wallet']: raise HTTPException(401,'签名钱包不匹配')
+        except Exception: raise HTTPException(401,'Invalid signature')
+        if address!=row['wallet']: raise HTTPException(401,'Signature wallet mismatch')
         consumed=db.execute(delete(nonces).where(nonces.c.id==body.id))
-        if consumed.rowcount!=1: raise HTTPException(401,'签名请求已使用')
+        if consumed.rowcount!=1: raise HTTPException(401,'Sign-in challenge already used')
         if not db.execute(select(users.c.wallet).where(users.c.wallet==address)).first(): db.execute(insert(users).values(wallet=address,created_at=now()))
         token=secrets.token_urlsafe(48);db.execute(insert(sessions).values(hash=hashlib.sha256(token.encode()).hexdigest(),wallet=address,expires_at=now()+86400))
     return {'token':token,'wallet':address,'is_admin':address in admins(),'expires_at':now()+86400}
 @router.get('/me')
 def me(wallet=Depends(wallet_auth)): return {'wallet':wallet,'is_admin':wallet in admins()}
+@router.get('/account/profile')
+def account_profile(wallet=Depends(wallet_auth)):
+    with engine().connect() as db:name=db.execute(select(account_profiles.c.display_name).where(account_profiles.c.wallet==wallet)).scalar()
+    return {'wallet':wallet,'display_name':name or ''}
+
+class ProfileUpdate(BaseModel):display_name:str=Field(min_length=1,max_length=40)
+@router.put('/account/profile')
+def save_account_profile(body:ProfileUpdate,wallet=Depends(wallet_auth)):
+    name=body.display_name.strip()
+    if not name or any(ord(c)<32 for c in name):raise HTTPException(400,'Please enter a valid display name')
+    with engine().begin() as db:
+        if db.execute(select(account_profiles.c.wallet).where(account_profiles.c.wallet==wallet)).scalar():db.execute(update(account_profiles).where(account_profiles.c.wallet==wallet).values(display_name=name))
+        else:db.execute(insert(account_profiles).values(wallet=wallet,display_name=name))
+    return {'wallet':wallet,'display_name':name}
+
+@router.get('/account/holdings')
+async def account_holdings(page:int=1,wallet=Depends(wallet_auth)):
+    page=max(1,page)
+    if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
+    with engine().connect() as db:
+        rows=db.execute(select(assets).where(visible_listing(),assets.c.token_address.is_not(None)).order_by(assets.c.created_at.desc(),assets.c.id.asc()).offset((page-1)*50).limit(51)).mappings().all()
+    selector='0x'+keccak(text='balanceOf(address)').hex()[:8]+wallet[2:].rjust(64,'0')
+    async def balance(row):
+        try:
+            value=await rpc('eth_call',[{'to':row['token_address'],'data':selector},'latest'])
+            amount=int(value,16)
+            return {'asset_id':row['id'],'name':row['name'],'symbol':row['symbol'],'token_address':row['token_address'],'balance_raw':str(amount),'available':True} if amount else None
+        except Exception:return {'asset_id':row['id'],'name':row['name'],'symbol':row['symbol'],'token_address':row['token_address'],'balance_raw':None,'available':False}
+    result=[]
+    for i in range(0,min(50,len(rows)),5):result.extend(await asyncio.gather(*(balance(row) for row in rows[i:i+5])))
+    return {'wallet':wallet,'items':[r for r in result if r is not None],'has_more':len(rows)>50,'page':page}
+
+@router.get('/account/trades')
+def account_trades(page:int=1,wallet=Depends(wallet_auth)):
+    page=max(1,page)
+    with engine().connect() as db:
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_updated_at')).scalar()
+        query=select(trades,assets.c.id.label('asset_id'),assets.c.name,assets.c.symbol).join(assets,assets.c.launch_id==trades.c.launch_id).where(trades.c.wallet==wallet).order_by(trades.c.block_number.desc(),trades.c.id.desc()).offset((page-1)*50).limit(51)
+        rows=db.execute(query).mappings().all()
+    selected=sorted(rows[:50],key=lambda r:(r['block_number'],int(r['id'].rsplit(':',1)[-1])),reverse=True)
+    return {'items':[dict(r) for r in selected],'has_more':len(rows)>50,'page':page,'indexed':bool(updated and 0<=now()-int(updated)<120)}
 @router.post('/auth/logout')
 def logout(request:Request,wallet=Depends(wallet_auth)):
     with engine().begin() as db: db.execute(delete(sessions).where(sessions.c.hash==hashlib.sha256(request.headers['authorization'][7:].encode()).hexdigest()))
@@ -152,33 +267,42 @@ async def upload(request:Request,private:bool=False,wallet=Depends(wallet_auth))
     data=bytearray()
     async for chunk in request.stream():
         data.extend(chunk)
-        if len(data)>10*1024*1024: raise HTTPException(413,'每个附件不能超过 10 MB')
-    if not data: raise HTTPException(400,'文件为空')
+        if len(data)>10*1024*1024: raise HTTPException(413,'Files must be under 10 MB')
+    if not data: raise HTTPException(400,'File is empty')
     if mime in ('image/jpeg','image/png','image/webp'):
         try:
             Image.MAX_IMAGE_PIXELS=24_000_000
             photo=Image.open(io.BytesIO(data));photo.load();photo=photo.convert('RGB');photo.thumbnail((2400,2400));buffer=io.BytesIO();photo.save(buffer,format='JPEG',quality=90);data=buffer.getvalue();mime='image/jpeg'
-        except (UnidentifiedImageError,Image.DecompressionBombError,Image.DecompressionBombWarning,OSError,ValueError): raise HTTPException(400,'图片无效或尺寸过大')
+        except (UnidentifiedImageError,Image.DecompressionBombError,Image.DecompressionBombWarning,OSError,ValueError): raise HTTPException(400,'Invalid image or image too large')
     elif private and mime=='application/pdf' and bytes(data).startswith(b'%PDF-'): data=bytes(data)
     elif private and mime=='video/mp4' and bytes(data)[4:8]==b'ftyp':data=bytes(data)
     elif private and mime=='video/webm' and bytes(data).startswith(b'\x1a\x45\xdf\xa3'):data=bytes(data)
-    else: raise HTTPException(400,'图片支持 JPG/PNG/WebP，私密证明另支持 PDF/MP4/WebM')
+    else: raise HTTPException(400,'Images support JPG/PNG/WebP. Private evidence also supports PDF/MP4/WebM')
     with engine().connect() as db:
         count=db.execute(select(func.count()).select_from(uploads).where(uploads.c.wallet==wallet,uploads.c.created_at>now()-3600)).scalar()
-        if count>=50: raise HTTPException(429,'每小时最多上传 50 个附件')
+        if count>=50: raise HTTPException(429,'Maximum 50 uploads per hour')
     id=uid();store_bytes(id,data)
     with engine().begin() as db: db.execute(insert(uploads).values(id=id,wallet=wallet,name=name,type=mime,private=int(private),created_at=now()))
     return {'id':id,'url':image_url(id),'name':name,'private':private}
 @router.get('/media/{id}')
-def media(id:str,request:Request):
+def media(id:str,request:Request,size:int|None=None):
+    if size is not None and size not in (96,480,960):raise HTTPException(422,'Unsupported image size')
     with engine().connect() as db: row=db.execute(select(uploads).where(uploads.c.id==id)).mappings().first()
-    if not row: raise HTTPException(404,'附件不存在')
+    if not row: raise HTTPException(404,'Attachment not found')
     if row['private']:
         wallet=wallet_auth(request)
-        if wallet!=row['wallet'] and wallet not in admins(): raise HTTPException(403,'证明文件仅创建者与审核员可见')
+        if wallet!=row['wallet'] and wallet not in admins(): raise HTTPException(403,'Evidence is private to creators and reviewers')
     try: data=read_bytes(id)
-    except Exception: raise HTTPException(503,'附件存储暂时不可用')
-    return Response(data,media_type=row['type'],headers={'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store' if row['private'] else 'public, max-age=86400','Content-Disposition':'attachment' if row['type']=='application/pdf' else 'inline'})
+    except Exception: raise HTTPException(503,'Attachment storage temporarily unavailable')
+    mime=row['type']
+    if size and not row['private'] and mime.startswith('image/'):
+        photo=Image.open(io.BytesIO(data));photo.thumbnail((size,size));buffer=io.BytesIO();photo.convert('RGB').save(buffer,format='WEBP',quality=80);data=buffer.getvalue();mime='image/webp'
+    etag='"'+hashlib.sha256(data).hexdigest()+'"'
+    headers={'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store' if row['private'] else 'public, max-age=86400','Content-Disposition':'attachment' if mime=='application/pdf' else 'inline'}
+    if not row['private']:
+        headers['ETag']=etag
+        if request.headers.get('if-none-match')==etag:return Response(status_code=304,headers=headers)
+    return Response(data,media_type=mime,headers=headers)
 
 class CreateAsset(BaseModel):
     name:str=Field(min_length=2,max_length=80);symbol:str=Field(pattern=r'^[A-Z0-9]{2,12}$')
@@ -190,24 +314,32 @@ def create_asset(body:CreateAsset,wallet=Depends(wallet_auth)):
     with engine().begin() as db:
         check_upload(db,body.image_id,wallet,False)
         count=db.execute(select(func.count()).select_from(assets).where(assets.c.wallet==wallet,assets.c.created_at>now()-3600)).scalar()
-        if count>=10: raise HTTPException(429,'每小时最多创建 10 个项目')
+        if count>=10: raise HTTPException(429,'Maximum 10 projects per hour')
         row={**body.model_dump(),'id':uid(),'wallet':wallet,'review_status':'unverified','proof_code':'CUS-'+secrets.token_hex(3).upper(),'proof_ids':'[]','review_note':'','created_at':now()}
         db.execute(insert(assets).values(**row));return enrich(db,row,wallet)
 @router.get('/assets')
-def list_assets(search:str='',category:str='',verification:str='',sort:Literal['new','popular']='new',page:int=1,limit:int=24,request:Request=None):
+def list_assets(search:str='',category:str='',verification:str='',sort:Literal['new','popular']='new',page:int=1,limit:int=24,issued:bool=False,watched:bool=False,recent:bool=False,request:Request=None):
     limit=max(1,min(limit,60));page=max(1,page);wallet=''
     if request and request.headers.get('authorization'):
         try: wallet=wallet_auth(request)
         except HTTPException: pass
     with engine().connect() as db:
-        query=select(assets)
+        query=select(assets).where(visible_listing())
+        if watched:
+            if not wallet:raise HTTPException(401,'Connect your wallet and sign in')
+            query=query.where(assets.c.id.in_(select(reactions.c.asset_id).where(reactions.c.wallet==wallet,reactions.c.kind=='watch')))
+        if issued: query=query.where(assets.c.token_address.is_not(None),assets.c.launch_id.is_not(None))
+        if recent:query=query.where(assets.c.id.in_(select(launch_listings.c.asset_id).where(launch_listings.c.timestamp>=now()-604800)))
         if search: query=query.where((assets.c.name.contains(search[:100],autoescape=True))|(assets.c.symbol.contains(search[:100],autoescape=True)))
         if category in ('memories','things','assets'): query=query.where(assets.c.category==category)
         if verification=='verified': query=query.where(assets.c.review_status=='approved')
         elif verification=='free': query=query.where(assets.c.mode=='free')
         if sort=='popular':
             count=select(func.count()).select_from(reactions).where(reactions.c.asset_id==assets.c.id,reactions.c.kind=='love').scalar_subquery();query=query.order_by(count.desc(),assets.c.created_at.desc())
-        else: query=query.order_by(assets.c.created_at.desc())
+        elif issued:
+            listed=select(launch_listings.c.timestamp).where(launch_listings.c.asset_id==assets.c.id).scalar_subquery()
+            query=query.order_by(listed.desc(),assets.c.created_at.desc(),assets.c.id.asc())
+        else: query=query.order_by(assets.c.created_at.desc(),assets.c.id.asc())
         rows=db.execute(query.limit(limit+1).offset((page-1)*limit)).mappings().all()
         return {'items':[enrich(db,r,wallet) for r in rows[:limit]],'has_more':len(rows)>limit,'page':page}
 @router.get('/assets/{id}')
@@ -218,6 +350,7 @@ def asset_detail(id:str,request:Request):
         except HTTPException: pass
     with engine().connect() as db:
         row=enrich(db,find_asset(db,id),wallet)
+        if row['listing_status']=='delisted' and wallet!=row['wallet'] and wallet not in admins():raise HTTPException(404,'Project removed from Custos for violating reality listing rules')
         row['comments']=[dict(r) for r in db.execute(select(comments).where(comments.c.asset_id==id).order_by(comments.c.created_at.desc()).limit(100)).mappings()]
     return row
 @router.get('/assets/{id}/metadata')
@@ -246,7 +379,7 @@ class Comment(BaseModel): body:str=Field(min_length=1,max_length=1000)
 def comment(id:str,body:Comment,wallet=Depends(wallet_auth)):
     with engine().begin() as db:
         find_asset(db,id);recent=db.execute(select(func.count()).select_from(comments).where(comments.c.wallet==wallet,comments.c.created_at>now()-60)).scalar()
-        if recent>=5: raise HTTPException(429,'请稍后再留言')
+        if recent>=5: raise HTTPException(429,'Please wait before posting another comment')
         db.execute(insert(comments).values(id=uid(),asset_id=id,wallet=wallet,body=body.body.strip(),created_at=now()))
     return {'ok':True}
 class Valuation(BaseModel): amount:float=Field(gt=0,le=1_000_000_000,allow_inf_nan=False)
@@ -254,7 +387,7 @@ class Valuation(BaseModel): amount:float=Field(gt=0,le=1_000_000_000,allow_inf_n
 def valuation(id:str,body:Valuation,wallet=Depends(wallet_auth)):
     with engine().begin() as db:
         row=find_asset(db,id)
-        if row['wallet']==wallet: raise HTTPException(400,'不能为自己的项目提交社区估值')
+        if row['wallet']==wallet: raise HTTPException(400,'You cannot value your own project')
         where=(valuations.c.asset_id==id)&(valuations.c.wallet==wallet)
         if db.execute(select(valuations.c.id).where(where)).first(): db.execute(update(valuations).where(where).values(amount=body.amount))
         else: db.execute(insert(valuations).values(id=uid(),asset_id=id,wallet=wallet,amount=body.amount))
@@ -264,53 +397,217 @@ class Proof(BaseModel): proof_ids:list[str]=Field(min_length=1,max_length=12);no
 def submit_proof(id:str,body:Proof,wallet=Depends(wallet_auth)):
     with engine().begin() as db:
         row=find_asset(db,id);own(row,wallet)
-        if row['review_status'] in ('pending','approved'): raise HTTPException(409,'项目已在审核中或已通过审核')
+        if row['review_status'] in ('pending','approved'): raise HTTPException(409,'Project already pending review or approved')
         for file in body.proof_ids: check_upload(db,file,wallet,True)
         db.execute(update(assets).where(assets.c.id==id).values(proof_ids=json.dumps(body.proof_ids),review_status='pending',review_note=body.note))
     return {'ok':True,'review_status':'pending'}
 @router.get('/admin/reviews')
 def reviews(wallet=Depends(admin_auth)):
     with engine().connect() as db:
-        rows=db.execute(select(assets).where(assets.c.review_status.in_(['pending','approved'])).order_by(assets.c.created_at.desc())).mappings().all()
+        rows=db.execute(select(assets).order_by(assets.c.created_at.desc())).mappings().all()
         result=[]
         for r in rows:
             row=enrich(db,r,wallet);ids=json.loads(row['proof_ids'])
             row['proof_files']=[dict(x) for x in db.execute(select(uploads).where(uploads.c.id.in_(ids))).mappings()];result.append(row)
     return {'items':result}
+class ModerationDecision(BaseModel):
+    status:Literal['listed','delisted']
+    reason:str=Field(min_length=3,max_length=2000)
+@router.post('/admin/projects/{id}/moderation')
+def moderate(id:str,body:ModerationDecision,wallet=Depends(admin_auth)):
+    reason=body.reason.strip()
+    if len(reason)<3:raise HTTPException(400,'Enter a reason of at least three characters')
+    with engine().begin() as db:
+        find_asset(db,id)
+        values={'status':body.status,'reason':reason,'wallet':wallet,'updated_at':now()}
+        if db.execute(select(moderation.c.asset_id).where(moderation.c.asset_id==id)).first():db.execute(update(moderation).where(moderation.c.asset_id==id).values(**values))
+        else:db.execute(insert(moderation).values(asset_id=id,**values))
+        if body.status=='delisted':db.execute(update(assets).where(assets.c.id==id,assets.c.review_status=='approved').values(review_status='revoked',review_note=reason))
+        db.execute(insert(audits).values(id=uid(),asset_id=id,wallet=wallet,decision=body.status,note=reason,created_at=now()))
+    return {'ok':True,'listing_status':body.status}
+
 class Review(BaseModel): decision:Literal['approved','rejected','revoked'];note:str=Field(min_length=3,max_length=2000)
 @router.post('/admin/reviews/{id}')
 def review(id:str,body:Review,wallet=Depends(admin_auth)):
     with engine().begin() as db:
         row=find_asset(db,id)
-        if row['wallet']==wallet: raise HTTPException(403,'审核员不能审核自己的项目')
-        if (body.decision=='revoked' and row['review_status']!='approved') or (body.decision!='revoked' and row['review_status']!='pending'): raise HTTPException(409,'审核状态已变化，请刷新')
+        if row['wallet']==wallet: raise HTTPException(403,'Reviewers cannot review their own projects')
+        if body.decision=='approved' and not db.execute(select(assets.c.id).where(assets.c.id==id,visible_listing())).first():raise HTTPException(409,'Restore the listing before reviewing verification')
+        if (body.decision=='revoked' and row['review_status']!='approved') or (body.decision!='revoked' and row['review_status'] not in ('unverified','pending','rejected','revoked')): raise HTTPException(409,'Review status changed. Please refresh')
         db.execute(update(assets).where(assets.c.id==id).values(review_status=body.decision,review_note=body.note))
         db.execute(insert(audits).values(id=uid(),asset_id=id,wallet=wallet,decision=body.decision,note=body.note,created_at=now()))
     return {'ok':True}
 
+_rpc_client=None
+_rpc_loop=None
+async def close_rpc():
+    global _rpc_client,_rpc_loop
+    if _rpc_client:await _rpc_client.aclose()
+    _rpc_client=None;_rpc_loop=None
+
 async def rpc(method,params):
+    global _rpc_client,_rpc_loop
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r=await client.post(config()['rpc'],json={'jsonrpc':'2.0','id':1,'method':method,'params':params});r.raise_for_status();body=r.json()
+        loop=asyncio.get_running_loop()
+        if _rpc_client is None or _rpc_client.is_closed or _rpc_loop is not loop:
+            _rpc_client=httpx.AsyncClient(timeout=httpx.Timeout(10,connect=4),limits=httpx.Limits(max_connections=20,max_keepalive_connections=10));_rpc_loop=loop
+        r=await _rpc_client.post(config()['rpc'],json={'jsonrpc':'2.0','id':1,'method':method,'params':params});r.raise_for_status();body=r.json()
     except (httpx.HTTPError,ValueError):
-        raise HTTPException(503,'链上节点暂时不可用，请稍后重试')
-    if body.get('error'): raise HTTPException(503,'链上节点暂时不可用')
+        raise HTTPException(503,'RPC temporarily unavailable. Retry later')
+    if body.get('error'): raise HTTPException(503,'RPC temporarily unavailable')
     return body.get('result')
 class Attachment(BaseModel): tx_hash:str=Field(pattern=r'^0x[0-9a-fA-F]{64}$')
+ETH_USD_FEED='ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace'
+STAKE_TOPIC='0x'+keccak(text='Staked(address,uint256,uint256,uint256,uint256)').hex()
+UNSTAKE_TOPIC='0x'+keccak(text='Unstaked(address,uint256,uint256)').hex()
+def staking_address():
+    address=config()['cfi_staking'].lower()
+    if not re.fullmatch(r'0x[0-9a-f]{40}',address):raise HTTPException(503,'CFI staking is not configured')
+    return address
+
+_binance_price_cache=None
+_binance_price_task=None
+STAKE_QUOTE_FIELDS=[{'name':'account','type':'address'},{'name':'amount','type':'uint256'},{'name':'price18','type':'uint256'},{'name':'issuedAt','type':'uint256'},{'name':'deadline','type':'uint256'},{'name':'nonce','type':'uint256'}]
+
+async def read_binance_price():
+    global _binance_price_cache
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response=await client.get('https://data-api.binance.vision/api/v3/ticker/price',params={'symbol':'ETHUSDT'})
+            response.raise_for_status();body=response.json()
+        price=Decimal(body['price']);scaled=price*10**18
+        if body.get('symbol')!='ETHUSDT' or not price.is_finite() or not 0<price<=10**8 or scaled!=scaled.to_integral_value():raise ValueError('Invalid price')
+        _binance_price_cache=(time.monotonic(),int(scaled),now())
+        return _binance_price_cache
+    except (httpx.HTTPError,ValueError,KeyError,TypeError,InvalidOperation):raise HTTPException(503,'Fresh Binance ETH/USDT data is unavailable. Retry later.')
+
+async def binance_staking_quote(request,address,value):
+    global _binance_price_task
+    wallet=wallet_auth(request) if request.headers.get('authorization') else ''
+    cached=_binance_price_cache
+    if not cached or time.monotonic()-cached[0]>5 or not -5<=now()-cached[2]<=5:
+        if _binance_price_task is None or _binance_price_task.done() or _binance_price_task.get_loop() is not asyncio.get_running_loop():_binance_price_task=asyncio.create_task(read_binance_price())
+        cached=await asyncio.shield(_binance_price_task)
+    _,price18,issued=cached
+    if now()-issued>10:raise HTTPException(503,'Binance quote expired. Retry.')
+    try:signer=Account.from_key(os.getenv('CFI_QUOTE_SIGNER_KEY',''))
+    except (ValueError,TypeError):raise HTTPException(503,'Staking quote signing is not configured')
+    calls=[rpc('eth_chainId',[]),rpc('eth_call',[{'to':address,'data':'0x'+keccak(text='quoteSigner()').hex()[:8]},'latest'])]
+    if wallet:calls.append(rpc('eth_call',[{'to':address,'data':'0x'+keccak(text='nonces(address)').hex()[:8]+encode(['address'],[wallet]).hex()},'latest']))
+    results=await asyncio.gather(*calls)
+    if int(results[0],16)!=91342 or not isinstance(results[1],str) or len(results[1])!=66 or ('0x'+results[1][-40:]).lower()!=signer.address.lower():raise HTTPException(503,'Staking quote signer or GIWA network mismatch')
+    if now()-issued>15:raise HTTPException(503,'Binance quote expired. Retry.')
+    nonce=int(results[2],16) if wallet else 0;deadline=issued+60;signature=None
+    if wallet:
+        message={'account':wallet,'amount':value,'price18':price18,'issuedAt':issued,'deadline':deadline,'nonce':nonce}
+        typed=encode_typed_data(domain_data={'name':'Custos CFI Binance','version':'1','chainId':91342,'verifyingContract':address},message_types={'StakeQuote':STAKE_QUOTE_FIELDS},message_data=message)
+        signature='0x'+Account.sign_message(typed,signer.key).signature.hex().removeprefix('0x')
+    return {'source':'binance','pair':'ETHUSDT','quoteCurrency':'USDT','vault':address,'account':wallet,'amountWei':str(value),'expectedCFI':str(value*price18//10**18),'price18':str(price18),'publishTime':issued,'issuedAt':issued,'deadline':deadline,'nonce':str(nonce),'signature':signature,'feeWei':'0'}
+
+@router.get('/staking/quote')
+async def staking_quote(request:Request,amount:str):
+    address=staking_address()
+    if not re.fullmatch(r'\d{1,7}(\.\d{1,18})?',amount):raise HTTPException(400,'Enter a valid ETH amount with up to 18 decimals')
+    value=int(Decimal(amount)*10**18)
+    if not 0<value<=10**24:raise HTTPException(400,'ETH amount is out of range')
+    if config()['cfi_price_source']=='binance':return await binance_staking_quote(request,address,value)
+    if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            key=os.getenv('PYTH_API_KEY','').strip()
+            response=await client.get('https://hermes.pyth.network/v2/updates/price/latest',params={'ids[]':ETH_USD_FEED,'encoding':'hex','parsed':'true'},headers={'Authorization':'Bearer '+key} if key else {})
+            if response.status_code in (401,403):raise HTTPException(503,'ETH/USD oracle access is not configured. Contact the operator to enable new deposits. Withdrawals remain available.')
+            response.raise_for_status();payload=response.json()
+        parsed=next(p for p in payload['parsed'] if p['id'].removeprefix('0x').lower()==ETH_USD_FEED)['price']
+        price=int(parsed['price']);expo=int(parsed['expo']);stamp=int(parsed['publish_time']);conf=int(parsed['conf'])
+        if price<=0 or not -18<=expo<=0 or not -5<=now()-stamp<=60 or conf*100>price:raise ValueError('Unusable quote')
+        price18=price*10**(18+expo)
+        if price18>10**26:raise ValueError('Price range')
+        data=['0x'+s.removeprefix('0x') for s in payload['binary']['data']]
+        if not data:raise ValueError('Missing update')
+    except (httpx.HTTPError,ValueError,KeyError,StopIteration,TypeError):raise HTTPException(503,'Fresh ETH/USD oracle data is unavailable. Retry later.')
+    oracle_data='0x'+keccak(text='pyth()').hex()[:8]
+    oracle='0x'+(await rpc('eth_call',[{'to':address,'data':oracle_data},'latest']))[-40:]
+    calldata='0x'+keccak(text='getUpdateFee(bytes[])').hex()[:8]+encode(['bytes[]'],[[bytes.fromhex(s[2:]) for s in data]]).hex()
+    fee=int(await rpc('eth_call',[{'to':oracle,'data':calldata},'latest']),16)
+    return {'vault':address,'amountWei':str(value),'expectedCFI':str(value*price18//10**18),'price18':str(price18),'publishTime':stamp,'updateData':data,'feeWei':str(fee)}
+
+def decode_stake_event(log,stamp):
+    topics=log.get('topics',[])
+    if len(topics)!=2 or topics[0].lower() not in (STAKE_TOPIC,UNSTAKE_TOPIC):return None
+    deposited=topics[0].lower()==STAKE_TOPIC
+    values=decode(['uint256']*(4 if deposited else 2),bytes.fromhex(log['data'][2:]))
+    eth,cfi=(values[0],values[1]) if deposited else (values[1],values[0])
+    if eth<=0 or cfi<=0:return None
+    return {'id':log['transactionHash']+':'+str(int(log['logIndex'],16)),'wallet':'0x'+topics[1][-40:].lower(),'side':'stake' if deposited else 'unstake','eth_amount':str(eth),'cfi_amount':str(cfi),'tx_hash':log['transactionHash'],'block_number':int(log['blockNumber'],16),'timestamp':stamp}
+
+@router.post('/staking/verify')
+async def verify_staking(body:Attachment,wallet=Depends(wallet_auth)):
+    address=staking_address()
+    if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
+    receipt=await rpc('eth_getTransactionReceipt',[body.tx_hash])
+    if not receipt or receipt.get('status')!='0x1':raise HTTPException(409,'Transaction has not confirmed successfully')
+    if receipt.get('to','').lower()!=address or receipt.get('from','').lower()!=wallet:raise HTTPException(400,'Staking contract or wallet mismatch')
+    block=int(receipt['blockNumber'],16)
+    if int(await rpc('eth_blockNumber',[]),16)-block<1:raise HTTPException(409,'Wait for two confirmations and retry')
+    header=await rpc('eth_getBlockByNumber',[hex(block),False]);records=[]
+    for log in receipt.get('logs',[]):
+        if log.get('removed') or log.get('address','').lower()!=address:continue
+        row=decode_stake_event(log,int(header['timestamp'],16))
+        if row and row['wallet']==wallet:records.append(row)
+    if not records:raise HTTPException(400,'No matching staking event found')
+    with engine().begin() as db:
+        for row in records:
+            if not db.execute(select(stake_events.c.id).where(stake_events.c.id==row['id'])).scalar():db.execute(insert(stake_events).values(**row))
+    return {'ok':True,'profile':season_profile(wallet)}
+
+async def sync_staking():
+    cfg=config();address=cfg['cfi_staking'];first=cfg['cfi_start_block']
+    if not address or not first:return
+    if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
+    with engine().connect() as db:cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='cfi_index_block')).scalar()
+    start=max(first,int(cursor)-16) if cursor else first
+    latest=int(await rpc('eth_blockNumber',[]),16)-2;end=min(latest,start+4999)
+    for a in range(start,end+1,1000):
+        b=min(end,a+999);records=[];times={}
+        logs=await rpc('eth_getLogs',[{'address':address,'fromBlock':hex(a),'toBlock':hex(b),'topics':[[STAKE_TOPIC,UNSTAKE_TOPIC]]}])
+        for log in logs:
+            if log.get('removed'):continue
+            block=int(log['blockNumber'],16)
+            if block not in times:times[block]=int((await rpc('eth_getBlockByNumber',[hex(block),False]))['timestamp'],16)
+            row=decode_stake_event(log,times[block])
+            if row:records.append(row)
+        with engine().begin() as db:
+            db.execute(delete(stake_events).where(stake_events.c.block_number>=a,stake_events.c.block_number<=b))
+            if records:db.execute(insert(stake_events),records)
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key=='cfi_index_block'));db.execute(insert(runtime_settings).values(key='cfi_index_block',value=str(b+1)))
+    with engine().begin() as db:
+        db.execute(delete(runtime_settings).where(runtime_settings.c.key=='cfi_index_updated_at'));db.execute(insert(runtime_settings).values(key='cfi_index_updated_at',value=str(now()) if end==latest else '0'))
+
+@router.get('/account/staking')
+def account_staking(page:int=1,wallet=Depends(wallet_auth)):
+    page=max(1,page)
+    with engine().connect() as db:
+        rows=db.execute(select(stake_events).where(stake_events.c.wallet==wallet).order_by(stake_events.c.block_number.desc(),stake_events.c.id.desc()).offset((page-1)*50).limit(51)).mappings().all()
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='cfi_index_updated_at')).scalar()
+    return {'items':[dict(r) for r in rows[:50]],'has_more':len(rows)>50,'page':page,'indexed':bool(updated and 0<=now()-int(updated)<120)}
+
 @router.post('/assets/{id}/attach')
 async def attach(id:str,body:Attachment,wallet=Depends(wallet_auth)):
-    with engine().connect() as db: row=find_asset(db,id);own(row,wallet)
-    if row['token_address']: raise HTTPException(409,'该项目已绑定代币')
-    if row['mode']=='verified' and row['review_status']!='approved': raise HTTPException(403,'认证发行须先通过人工审核')
+    with engine().connect() as db:
+        row=find_asset(db,id);own(row,wallet)
+        if not db.execute(select(assets.c.id).where(assets.c.id==id,visible_listing())).first():raise HTTPException(403,'Project is delisted from Custos')
+    if row['token_address']: raise HTTPException(409,'Project already has a token')
+    if row['mode']=='verified' and row['review_status']!='approved': raise HTTPException(403,'Verified issuance requires evidence approval')
     launchpad=config()['launchpad'].lower()
-    if not re.fullmatch(r'0x[0-9a-f]{40}',launchpad): raise HTTPException(503,'GIWA 发射台合约尚未部署或配置')
+    if not re.fullmatch(r'0x[0-9a-f]{40}',launchpad): raise HTTPException(503,'GIWA Launchpad is not deployed or configured')
     chain=await rpc('eth_chainId',[])
-    if int(chain,16)!=91342: raise HTTPException(503,'RPC 链与 GIWA 配置不符')
+    if int(chain,16)!=91342: raise HTTPException(503,'RPC Network does not match GIWA configuration')
     receipt=await rpc('eth_getTransactionReceipt',[body.tx_hash])
-    if not receipt or receipt.get('status')!='0x1': raise HTTPException(409,'交易未成功确认')
-    if receipt.get('to','').lower()!=launchpad or receipt.get('from','').lower()!=wallet: raise HTTPException(400,'交易合约或创建者不匹配')
+    if not receipt or receipt.get('status')!='0x1': raise HTTPException(409,'Transaction has not confirmed successfully')
+    if receipt.get('to','').lower()!=launchpad or receipt.get('from','').lower()!=wallet: raise HTTPException(400,'Transaction contract or creator mismatch')
     head=int(await rpc('eth_blockNumber',[]),16)
-    if head-int(receipt['blockNumber'],16)<1: raise HTTPException(409,'等待更多链上确认后重试')
+    if head-int(receipt['blockNumber'],16)<1: raise HTTPException(409,'Wait for more onchain confirmations and retry')
     topic='0x'+keccak(text='LaunchCreated(uint256,address,address,bool,string)').hex()
     found=None
     for log in receipt.get('logs',[]):
@@ -320,21 +617,21 @@ async def attach(id:str,body:Attachment,wallet=Depends(wallet_auth)):
             curated,uri=decode(['bool','string'],bytes.fromhex(log['data'][2:]))
             if not uri.endswith('/api/reality/assets/'+id+'/metadata'): continue
             found=(int(topics[1],16),'0x'+topics[3][-40:].lower());break
-    if not found: raise HTTPException(400,'交易中没有对应项目的发行记录')
+    if not found: raise HTTPException(400,'No matching project issuance event found')
     launch_id,token=found
     raw=await rpc('eth_call',[{'to':launchpad,'data':'0x'+keccak(text='getLaunch(uint256)')[:4].hex()+hex(launch_id)[2:].zfill(64)},'latest'])
     value=decode(['(address,address,string,string,string,uint256,uint256,uint256,uint256,uint64,uint64,bool,bool)'],bytes.fromhex(raw[2:]))[0]
-    if value[0].lower()!=wallet or value[1].lower()!=token or value[2]!=row['name'] or value[3]!=row['symbol'] or value[5]!=int(row['supply'])*10**18: raise HTTPException(400,'链上名称、数量或发行者与项目不符')
+    if value[0].lower()!=wallet or value[1].lower()!=token or value[2]!=row['name'] or value[3]!=row['symbol'] or value[5]!=int(row['supply'])*10**18: raise HTTPException(400,'Onchain name, supply or creator mismatch')
     with engine().begin() as db:
         changed=db.execute(update(assets).where(assets.c.id==id,assets.c.token_address.is_(None)).values(token_address=token,launch_id=launch_id,tx_hash=body.tx_hash))
-        if changed.rowcount!=1: raise HTTPException(409,'项目已绑定代币')
+        if changed.rowcount!=1: raise HTTPException(409,'Project already has a token')
     return {'ok':True,'token_address':token,'launch_id':launch_id}
 
 @router.get('/activity')
 def activity():
     with engine().connect() as db:
-        created=[{'id':r['id'],'asset_id':r['id'],'wallet':r['wallet'],'text':'创建了 '+r['name'],'created_at':r['created_at']} for r in db.execute(select(assets).order_by(assets.c.created_at.desc()).limit(12)).mappings()]
-        reviewed=[{'id':r['id'],'asset_id':r['asset_id'],'wallet':r['wallet'],'text':{'approved':'通过了资产证明审核','rejected':'完成了证明审核','revoked':'撤销了资产认证'}[r['decision']],'created_at':r['created_at']} for r in db.execute(select(audits).order_by(audits.c.created_at.desc()).limit(12)).mappings()]
+        created=[{'id':r['id'],'asset_id':r['id'],'wallet':r['wallet'],'text':'created '+r['name'],'created_at':r['created_at']} for r in db.execute(select(assets).where(visible_listing()).order_by(assets.c.created_at.desc()).limit(12)).mappings()]
+        reviewed=[{'id':r['id'],'asset_id':r['asset_id'],'wallet':r['wallet'],'text':{'approved':'verified project evidence','rejected':'reviewed project evidence','revoked':'revoked project verification','delisted':'removed a project','listed':'restored a project'}.get(r['decision'],'reviewed project'),'created_at':r['created_at']} for r in db.execute(select(audits).where(~audits.c.asset_id.like("season:%"),audits.c.asset_id.in_(select(assets.c.id).where(visible_listing()))).order_by(audits.c.created_at.desc()).limit(12)).mappings()]
     return {'items':sorted(created+reviewed,key=lambda x:x['created_at'],reverse=True)[:12]}
 
 _index_task=None
@@ -384,13 +681,31 @@ async def start_reality_index():
     global _index_task
     async def loop():
         while True:
-            try:await sync_trades()
-            except asyncio.CancelledError:raise
-            except Exception as e:
-                import logging
-                logging.getLogger('custos.reality').warning('Reality index unavailable: %s',type(e).__name__)
+            for job in (sync_listings,sync_trades,sync_staking):
+                try:await job()
+                except asyncio.CancelledError:raise
+                except Exception as e:
+                    import logging
+                    logging.getLogger('custos.reality').warning('Reality index unavailable: %s',type(e).__name__)
             await asyncio.sleep(30)
     _index_task=asyncio.create_task(loop())
+
+async def sync_listings():
+    address=config()['launchpad']
+    if not address:return
+    with engine().connect() as db:
+        rows=db.execute(select(assets).where(assets.c.token_address.is_not(None),assets.c.tx_hash.is_not(None),~assets.c.id.in_(select(launch_listings.c.asset_id))).limit(20)).mappings().all()
+    if not rows:return
+    if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
+    head=int(await rpc('eth_blockNumber',[]),16)
+    for row in rows:
+        receipt=await rpc('eth_getTransactionReceipt',[row['tx_hash']])
+        if not receipt or receipt.get('status')!='0x1' or receipt.get('to','').lower()!=address.lower() or receipt.get('from','').lower()!=row['wallet']:continue
+        block=int(receipt['blockNumber'],16)
+        if head-block<1:continue
+        stamp=int((await rpc('eth_getBlockByNumber',[hex(block),False]))['timestamp'],16)
+        with engine().begin() as db:
+            if not db.execute(select(launch_listings.c.asset_id).where(launch_listings.c.asset_id==row['id'])).scalar():db.execute(insert(launch_listings).values(asset_id=row['id'],timestamp=stamp,block_number=block))
 async def stop_reality_index():
     if _index_task:
         _index_task.cancel()
@@ -419,28 +734,148 @@ def market_stats():
             result[row['id']]={'volume_eth':sum(int(t['quote_amount']) for t in recent)/10**18 if complete else None,'change_24h':(latest/baseline-1)*100 if complete and baseline and latest else None,'history':[{'time':t['timestamp'],'price':int(t['quote_reserve'])/int(t['token_reserve'])} for t in recent[-100:] if int(t['token_reserve'])]}
     return {'items':result,'indexed':complete}
 
+_ranking_quotes={}
+_ranking_quote_tasks={}
+
+async def ranking_quote(key,asset):
+    try:
+        if int(await rpc('eth_chainId',[]),16)!=91342:return
+        data='0x'+keccak(text='getLaunch(uint256)').hex()[:8]+encode(['uint256'],[asset['launch_id']]).hex()
+        raw=await rpc('eth_call',[{'to':key[1],'data':data},'latest'])
+        state=decode(['(address,address,string,string,string,uint256,uint256,uint256,uint256,uint64,uint64,bool,bool)'],bytes.fromhex(raw[2:]))[0]
+        if state[1].lower()!=asset['token_address'].lower() or state[0].lower()!=asset['wallet'].lower() or not state[6]:return
+        price=state[7]/state[6]
+        _ranking_quotes[key]=(time.monotonic(),{'price':price,'cap':price*state[5]/10**18,'liquidity_eth':state[8]/10**18,'tokenReserve':str(state[6]),'quoteReserve':str(state[7])})
+    except (HTTPException,ValueError,OverflowError,TypeError,DecodingError):pass
+    finally:_ranking_quote_tasks.pop(key,None)
+
+async def resolve_market_quotes(selected,wait=.15):
+    cfg=config();address=cfg['launchpad'];keys=[];pending=[]
+    for row in selected:
+        a=row['asset'];key=(cfg['rpc'],address,a['launch_id'],a['token_address'],a['wallet']);keys.append(key)
+        cached=_ranking_quotes.get(key)
+        if address and a['launch_id'] and a['token_address'] and (not cached or time.monotonic()-cached[0]>=30):
+            task=_ranking_quote_tasks.get(key)
+            if task is None or task.done():
+                task=asyncio.create_task(ranking_quote(key,a));_ranking_quote_tasks[key]=task
+            if not cached:pending.append(task)
+    if pending:await asyncio.wait(pending,timeout=wait)
+    quotes_pending=False
+    for row,key in zip(selected,keys):
+        cached=_ranking_quotes.get(key)
+        if cached and time.monotonic()-cached[0]<90:row.update(cached[1])
+        quotes_pending=quotes_pending or key in _ranking_quote_tasks
+    return quotes_pending
+
+@router.get('/assets/{id}/market')
+async def asset_market(id:str):
+    with engine().connect() as db:
+        a=dict(find_asset(db,id));block=db.execute(select(func.max(trades.c.block_number)).where(trades.c.launch_id==a['launch_id'])).scalar() if a['launch_id'] else None
+        last=db.execute(select(trades).where(trades.c.launch_id==a['launch_id'],trades.c.block_number==block)).mappings().all() if block is not None else []
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_updated_at')).scalar()
+    last=sorted(last,key=lambda t:(t['block_number'],int(t['id'].rsplit(':',1)[-1])))
+    price=int(last[-1]['quote_reserve'])/int(last[-1]['token_reserve']) if last and int(last[-1]['token_reserve']) and updated and 0<=now()-int(updated)<120 else None
+    row={'asset':a,'price':price,'cap':None,'liquidity_eth':None,'tokenReserve':'','quoteReserve':''}
+    pending=await resolve_market_quotes([row])
+    return {'price':row['price'],'cap':row['cap'],'reserve':row['liquidity_eth'],'tokenReserve':row['tokenReserve'],'quoteReserve':row['quoteReserve'],'pending':pending}
+
+@router.get('/market/rankings')
+async def market_rankings(request:Request,period:Literal['5m','1h','6h','24h']='24h',metric:Literal['trending','gainers','volume','new']='trending',direction:Literal['desc','asc']='desc',category:str='',verification:Literal['','verified','free']='',page:int=1,limit:int=25):
+    stamp=now();cutoff=stamp-{'5m':300,'1h':3600,'6h':21600,'24h':86400}[period]
+    page=max(1,page);limit=max(1,min(limit,50));wallet=''
+    if request.headers.get('authorization'):
+        try:wallet=wallet_auth(request)
+        except HTTPException:pass
+    with engine().connect() as db:
+        query=select(assets).where(visible_listing(),assets.c.token_address.is_not(None),assets.c.launch_id.is_not(None))
+        if category in ('memories','things','assets'):query=query.where(assets.c.category==category)
+        if verification=='verified':query=query.where(assets.c.review_status=='approved')
+        elif verification=='free':query=query.where(assets.c.mode=='free')
+        projects=list(db.execute(query).mappings())
+        cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_block')).scalar()
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_updated_at')).scalar()
+        complete=bool(cursor and updated and 0<=stamp-int(updated)<120)
+        ids=[a['launch_id'] for a in projects]
+        records=db.execute(select(trades).where(trades.c.launch_id.in_(ids),trades.c.timestamp>=stamp-604800)).mappings().all() if ids else []
+        grouped={}
+        for record in records:grouped.setdefault(record['launch_id'],[]).append(record)
+        result=[]
+        for a in projects:
+            history=sorted(grouped.get(a['launch_id'],[]),key=lambda t:(t['block_number'],int(t['id'].rsplit(':',1)[-1])))
+            recent=[t for t in history if t['timestamp']>=cutoff]
+            before=[t for t in history if t['timestamp']<cutoff]
+            # Read an older reference when the seven-day chart has no baseline.
+            older=[]
+            if not before:
+                block=db.execute(select(func.max(trades.c.block_number)).where(trades.c.launch_id==a['launch_id'],trades.c.timestamp<stamp-604800)).scalar()
+                if block is not None:older=db.execute(select(trades).where(trades.c.launch_id==a['launch_id'],trades.c.block_number==block)).mappings().all()
+            older=sorted(older,key=lambda t:(t['block_number'],int(t['id'].rsplit(':',1)[-1])))
+            baseline=before[-1] if before else (older[-1] if older else None)
+            last=history[-1] if history else baseline
+            def price(t):return int(t['quote_reserve'])/int(t['token_reserve']) if t and int(t['token_reserve']) else None
+            initial,latest=price(baseline),price(last)
+            hourly={}
+            for t in history:
+                value=price(t)
+                if value is not None:hourly[t['timestamp']//3600]={'time':t['timestamp'],'price':value}
+            result.append({'asset':enrich(db,a,wallet),'change':(latest/initial-1)*100 if complete and initial and latest else None,'volume_eth':sum(int(t['quote_amount']) for t in recent)/10**18 if complete else None,'traders':len({t['wallet'] for t in recent}) if complete else None,'trend':list(hourly.values()),'price':latest if complete else None,'cap':None,'liquidity_eth':None})
+    def key(row):
+        primary=row['asset']['issued_at'] if metric=='new' else row['change'] if metric=='gainers' else row['volume_eth'] if metric=='volume' else row['traders']
+        value=primary if primary is not None else 0
+        secondary=(row['volume_eth'] or 0) if metric=='trending' else row['asset']['created_at']
+        return (primary is None,-value if direction=='desc' else value,-secondary,-row['asset']['created_at'],row['asset']['id'])
+    result.sort(key=key);total=len(result);selected=result[(page-1)*limit:page*limit]
+    quotes_pending=await resolve_market_quotes(selected,wait=.15)
+    for index,row in enumerate(selected):row['rank']=(page-1)*limit+index+1
+    return {'items':selected,'total':total,'has_more':page*limit<total,'page':page,'period':period,'metric':metric,'indexed':complete,'indexed_at':int(updated or 0),'as_of':stamp,'quotes_pending':quotes_pending}
+
+@router.get('/assets/{id}/chart')
+def asset_chart(id:str,period:Literal['1h','24h','7d']='24h',resolution:Literal['1m','5m','15m','1h']|None=None):
+    duration,step={'1h':(3600,60),'24h':(86400,900),'7d':(604800,3600)}[period]
+    if resolution:step={'1m':60,'5m':300,'15m':900,'1h':3600}[resolution]
+    end=now();start=end-duration
+    with engine().connect() as db:
+        asset=find_asset(db,id)
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_updated_at')).scalar()
+        indexed=bool(updated and 0<=end-int(updated)<120)
+        records=[]
+        if asset['token_address'] and asset['launch_id']:
+            records=db.execute(select(trades).where(trades.c.launch_id==asset['launch_id'],trades.c.timestamp>=start,trades.c.timestamp<=end).order_by(trades.c.block_number.desc(),trades.c.id.desc()).limit(5001)).mappings().all()
+        records=sorted(records,key=lambda t:(t['block_number'],int(t['id'].rsplit(':',1)[-1])))
+        truncated=len(records)>5000;records=records[-5000:]
+        candles={};valid=[]
+        for t in records:
+            reserve=int(t['token_reserve']);amount=int(t['token_amount'])
+            if reserve<=0 or amount<=0:continue
+            price=int(t['quote_reserve'])/reserve;volume=int(t['quote_amount'])/10**18
+            bucket=t['timestamp']//step*step
+            if bucket not in candles:candles[bucket]={'time':bucket,'open':price,'high':price,'low':price,'close':price,'volume_eth':0,'count':0}
+            bar=candles[bucket];bar['high']=max(bar['high'],price);bar['low']=min(bar['low'],price);bar['close']=price;bar['volume_eth']+=volume;bar['count']+=1
+            valid.append({'id':t['id'],'time':t['timestamp'],'side':t['side'],'wallet':t['wallet'],'tx_hash':t['tx_hash'],'amount_eth':str(int(t['quote_amount'])),'amount_token':str(amount),'execution_price':int(t['quote_amount'])/amount,'price_after':price})
+    return {'period':period,'from':start,'to':end,'interval':step,'indexed':indexed,'indexed_at':int(updated or 0),'truncated':truncated,'candles':list(candles.values()),'trades':list(reversed(valid[-50:])),'trade_count':len(valid),'volume_eth':sum(c['volume_eth'] for c in candles.values()) if indexed and not truncated else None}
+
 class RuntimeConfig(BaseModel):
     launchpad:str=Field(default='',max_length=42);platform_token:str=Field(default='',max_length=42)
     swap_router:str=Field(default='',max_length=42);swap_factory:str=Field(default='',max_length=42)
 @router.post('/admin/config')
 async def set_runtime_config(body:RuntimeConfig,wallet=Depends(admin_auth)):
     values=body.model_dump()
-    if int(await rpc('eth_chainId',[]),16)!=91342: raise HTTPException(503,'节点链 ID 不正确')
+    if int(await rpc('eth_chainId',[]),16)!=91342: raise HTTPException(503,'RPC chain ID mismatch')
     for key,value in values.items():
         if not value: continue
-        if not re.fullmatch(r'0x[0-9a-fA-F]{40}',value): raise HTTPException(400,'无效的合约地址')
+        if not re.fullmatch(r'0x[0-9a-fA-F]{40}',value): raise HTTPException(400,'Invalid contract address')
         code=await rpc('eth_getCode',[value,'latest'])
-        if code in ('0x','0x0',None): raise HTTPException(400,f'{key} 在 GIWA 上没有合约代码')
+        if code in ('0x','0x0',None): raise HTTPException(400,f'{key} has no deployed code on GIWA')
         if key=='launchpad':
             artifact=json.loads((Path(__file__).parent/'reality-contract.json').read_text())
-            if code.lower()!=artifact['deployedBytecode'].lower(): raise HTTPException(400,'发射台合约代码与当前版本不匹配')
+            if code.lower()!=artifact['deployedBytecode'].lower(): raise HTTPException(400,'Launchpad bytecode does not match this version')
             current=config()['launchpad']
             if current and current.lower()!=value.lower():
                 with engine().connect() as db: issued=db.execute(select(func.count()).select_from(assets).where(assets.c.token_address.is_not(None))).scalar()
-                if issued: raise HTTPException(409,'已有发行项目，不允许直接替换发射台合约')
+                if issued: raise HTTPException(409,'An active launchpad cannot be replaced directly')
     if values['swap_router']:
         raw=await rpc('eth_call',[{'to':values['swap_router'],'data':'0x'+keccak(text='factory()')[:4].hex()},'latest'])
-        if not values['swap_factory'] or ('0x'+raw[-40:]).lower()!=values['swap_factory'].lower(): raise HTTPException(400,'Router 与 Factory 不匹配')
+        if not values['swap_factory'] or ('0x'+raw[-40:]).lower()!=values['swap_factory'].lower(): raise HTTPException(400,'Router does not match the factory')
     with engine().begin() as db:
         for key,value in values.items():
             db.execute(delete(runtime_settings).where(runtime_settings.c.key==key));db.execute(insert(runtime_settings).values(key=key,value=value))
@@ -450,3 +885,64 @@ async def set_runtime_config(body:RuntimeConfig,wallet=Depends(admin_auth)):
 def health():
     with engine().connect() as db: db.execute(select(func.count()).select_from(users))
     return {'ok':True,'chain_id':91342,'launchpad_configured':bool(config()['launchpad'])}
+
+def season_scores(db):
+    issued=dict(db.execute(select(assets.c.wallet,func.count()).where(assets.c.token_address.is_not(None)).group_by(assets.c.wallet)).all())
+    profiles=list(db.execute(select(season_profiles)).mappings())
+    verified_x=set(db.execute(select(x_visits.c.wallet)).scalars())
+    verified_stakes=set(db.execute(select(stake_events.c.wallet).where(stake_events.c.side=='stake')).scalars())
+    scores=[]
+    for p in profiles:
+        invites=sum(1 for q in profiles if q['inviter']==p['wallet'] and issued.get(q['wallet'],0)>0)
+        launches=issued.get(p['wallet'],0)
+        x_approved=p['wallet'] in verified_x
+        points=(100 if launches else 0)+invites*100+(10 if x_approved else 0)+(100 if p['wallet'] in verified_stakes else 0)
+        scores.append({'wallet':p['wallet'],'referralCode':p['code'],'points':points,'stakeCompleted':p['wallet'] in verified_stakes,'verifiedTransactions':launches,'qualifiedReferrals':invites,'qualified':points>0,'season':'S1','xStatus':'visited' if x_approved else 'none','xHandle':p['x_handle']})
+    scores.sort(key=lambda p:(-p['points'],p['wallet']))
+    for i,p in enumerate(scores):p['rank']=i+1 if p['qualified'] else 0
+    return scores
+
+@router.get('/season/profile/{wallet}')
+def season_profile(wallet:str):
+    with engine().connect() as db:
+        return next((p for p in season_scores(db) if p['wallet']==wallet.lower()),{'wallet':wallet.lower(),'referralCode':'','points':0,'verifiedTransactions':0,'qualifiedReferrals':0,'rank':0,'qualified':False,'season':'S1','xStatus':'none','xHandle':''})
+
+@router.get('/season/stats')
+def season_stats():
+    with engine().connect() as db:rows=season_scores(db)
+    return {'participants':len(rows),'verifiedTransactions':sum(r['verifiedTransactions'] for r in rows),'pointsIssued':sum(r['points'] for r in rows),'qualifiedReferrals':sum(r['qualifiedReferrals'] for r in rows)}
+
+@router.get('/season/leaderboard')
+def season_board():
+    with engine().connect() as db:rows=season_scores(db)
+    return {'entries':[r for r in rows if r['qualified']][:25]}
+
+class SeasonRegistration(BaseModel):ref_code:str=Field(default='',max_length=32)
+@router.post('/season/register')
+def season_register(body:SeasonRegistration,wallet=Depends(wallet_auth)):
+    with engine().begin() as db:
+        existing=db.execute(select(season_profiles).where(season_profiles.c.wallet==wallet)).mappings().first()
+        if not existing:
+            inviter=db.execute(select(season_profiles.c.wallet).where(season_profiles.c.code==body.ref_code.upper())).scalar() if body.ref_code else ''
+            issued=db.execute(select(func.count()).select_from(assets).where(assets.c.wallet==wallet,assets.c.token_address.is_not(None))).scalar()
+            if inviter==wallet:raise HTTPException(400,'Self-referrals are not allowed')
+            if issued:inviter=''
+            db.execute(insert(season_profiles).values(wallet=wallet,code='CST'+secrets.token_hex(8).upper(),inviter=inviter or '',x_handle='',x_status='none',created_at=now()))
+    return season_profile(wallet)
+
+
+@router.get('/season/x/config')
+def x_config():
+    return {'url':os.getenv('REALITY_X_PROFILE_URL','https://x.com/custosfinance'),'mode':'visit','points':10}
+
+@router.post('/season/x-visit')
+def season_x_visit(wallet=Depends(wallet_auth)):
+    from sqlalchemy.exc import IntegrityError
+    try:
+        with engine().begin() as db:
+            if not db.execute(select(season_profiles.c.wallet).where(season_profiles.c.wallet==wallet)).scalar():raise HTTPException(409,'Join Season 1 first')
+            if not db.execute(select(x_visits.c.wallet).where(x_visits.c.wallet==wallet)).scalar():
+                db.execute(insert(x_visits).values(wallet=wallet,created_at=now()))
+    except IntegrityError:
+        pass  # Concurrent clicks on the same wallet still award only once.
+    return season_profile(wallet)

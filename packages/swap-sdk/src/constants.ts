@@ -10,7 +10,8 @@ export enum ChainId {
   GÖRLI = 5,
   KOVAN = 42,
   REI = 47805,
-  REITEST = 12357
+  REITEST = 12357,
+  GIWA_SEPOLIA = 91342
 }
 
 export enum TradeType {

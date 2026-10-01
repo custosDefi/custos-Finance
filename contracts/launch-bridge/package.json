@@ -2,12 +2,19 @@
   "name": "@custos/launch-bridge",
   "private": true,
   "scripts": {
+    "deploy:reality": "node scripts/deploy-reality.cjs",
     "build:reality": "node scripts/compile-reality.cjs",
     "test:reality": "node scripts/test-reality.cjs",
     "build": "node scripts/compile-protocol.cjs",
     "deploy:dual": "node scripts/deploy-protocol.cjs",
     "smoke:local": "node scripts/smoke-test.cjs",
-    "fmt": "forge fmt"
+    "fmt": "forge fmt",
+    "build:cfi": "node scripts/compile-cfi.cjs",
+    "test:cfi": "node scripts/test-cfi.cjs",
+    "deploy:cfi": "node scripts/deploy-cfi.cjs",
+    "build:cfi:binance": "node scripts/compile-cfi-binance.cjs",
+    "test:cfi:binance": "node scripts/test-cfi-binance.cjs",
+    "deploy:cfi:binance": "node scripts/deploy-cfi-binance.cjs"
   },
   "devDependencies": {
     "ethers": "5.8.0",

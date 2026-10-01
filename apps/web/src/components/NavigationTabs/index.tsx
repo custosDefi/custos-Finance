@@ -1,7 +1,8 @@
+import useLiquidityPath from '../../hooks/useLiquidityPath'
 import React from 'react'
 import styled from 'styled-components'
 import { useTranslation } from 'react-i18next'
-import { NavLink, Link as HistoryLink } from 'react-router-dom'
+import { NavLink, useLocation, Link as HistoryLink } from 'react-router-dom'
 
 import { ArrowLeft } from 'react-feather'
 import { RowBetween } from '../Row'
@@ -64,13 +65,14 @@ const StyledArrowLeft = styled(ArrowLeft)`
 
 export function SwapPoolTabs({ active, settings }: { active: 'swap' | 'pool'; settings?: React.ReactNode }) {
   const { t } = useTranslation()
+  const reality=useLocation().pathname.startsWith('/reality')
   return (
     <Tabs style={{ marginBottom: '20px' }}>
       <TabGroup>
-        <StyledNavLink id={`swap-nav-link`} to={'/swap'} isActive={() => active === 'swap'}>
+        <StyledNavLink id={`swap-nav-link`} to={reality?'/reality/swap':'/swap'} isActive={() => active === 'swap'}>
           {t('swap')}
         </StyledNavLink>
-        <StyledNavLink id={`pool-nav-link`} to={'/pool'} isActive={() => active === 'pool'}>
+        <StyledNavLink id={`pool-nav-link`} to={reality?'/reality/pool':'/pool'} isActive={() => active === 'pool'}>
           {t('pool')}
         </StyledNavLink>
       </TabGroup>
@@ -80,11 +82,12 @@ export function SwapPoolTabs({ active, settings }: { active: 'swap' | 'pool'; se
 }
 
 export function FindPoolTabs() {
+  const liquidityPath = useLiquidityPath()
   const { t } = useTranslation()
   return (
     <Tabs>
       <RowBetween style={{ padding: '1rem' }}>
-        <HistoryLink to="/pool">
+        <HistoryLink to={liquidityPath("/pool")}>
           <StyledArrowLeft />
         </HistoryLink>
         <ActiveText>{t('ImportPool')}</ActiveText>
@@ -95,11 +98,12 @@ export function FindPoolTabs() {
 }
 
 export function AddRemoveTabs({ adding }: { adding: boolean }) {
+  const liquidityPath = useLiquidityPath()
   const { t } = useTranslation()
   return (
     <Tabs>
       <RowBetween style={{ padding: '1rem' }}>
-        <HistoryLink to="/pool">
+        <HistoryLink to={liquidityPath("/pool")}>
           <StyledArrowLeft />
         </HistoryLink>
         <ActiveText>{adding ? t('addLiquidity') : t('removeLiquidity')}</ActiveText>

@@ -24,7 +24,7 @@ export function useApproveCallback(
   amountToApprove?: CurrencyAmount,
   spender?: string
 ): [ApprovalState, () => Promise<void>] {
-  const { account } = useActiveWeb3React()
+  const { account, chainId } = useActiveWeb3React()
   const { t } = useTranslation()
   const token = amountToApprove instanceof TokenAmount ? amountToApprove.token : undefined
   const currentAllowance = useTokenAllowance(token, account ?? undefined, spender)
@@ -49,6 +49,9 @@ export function useApproveCallback(
   const addTransaction = useTransactionAdder()
 
   const approve = useCallback(async (): Promise<void> => {
+    if (chainId === 91342 && spender?.toLowerCase() === ROUTER_ADDRESS.toLowerCase()) {
+      throw new Error('Custos V2 router is not deployed on GIWA Sepolia')
+    }
     if (approvalState !== ApprovalState.NOT_APPROVED) {
       console.error('approve was called unnecessarily')
       return
@@ -94,7 +97,7 @@ export function useApproveCallback(
         console.debug('Failed to approve token', error)
         throw error
       })
-  }, [approvalState, token, tokenContract, amountToApprove, spender, addTransaction, t])
+  }, [approvalState, token, tokenContract, amountToApprove, spender, addTransaction, t, chainId])
 
   return [approvalState, approve]
 }

@@ -93,7 +93,8 @@ export function getContract(address: string, ABI: any, library: Web3Provider, ac
 }
 
 // account is optional
-export function getRouterContract(_: number, library: Web3Provider, account?: string): Contract {
+export function getRouterContract(chainId: number, library: Web3Provider, account?: string): Contract {
+  if (chainId === 91342) throw Error('Custos V2 router is not deployed on GIWA Sepolia. Use RWA Token swap for issued launchpad tokens.')
   return getContract(ROUTER_ADDRESS, IUniswapV2Router02ABI, library, account)
 }
 

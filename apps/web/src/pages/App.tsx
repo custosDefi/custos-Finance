@@ -1,11 +1,9 @@
 import React, { Suspense } from 'react'
 import { HashRouter, Redirect, Route, Switch } from 'react-router-dom'
-import GoogleAnalyticsReporter from '../components/analytics/GoogleAnalyticsReporter'
-import DarkModeQueryParamReader from '../theme/DarkModeQueryParamReader'
-import Web3ReactManager from '../components/Web3ReactManager'
-import DefiShell from '../custos/DefiShell'
-import CustosLandingPage from '../custos/CustosLandingPage'
-import RealityApp from '../custos/RealityApp'
+const LegacyApp=React.lazy(()=>import('../custos/LegacyApp'))
+const CustosLandingPage=React.lazy(()=>import('../custos/CustosLandingPage'))
+const RealityApp=React.lazy(()=>import('../custos/RealityApp'))
+import PageErrorBoundary from '../components/PageErrorBoundary'
 
 /**
  * Custos application routes.
@@ -17,25 +15,21 @@ import RealityApp from '../custos/RealityApp'
  */
 export default function App() {
   return (
-    <Suspense fallback={null}>
-      <HashRouter>
-        <Route component={GoogleAnalyticsReporter} />
-        <Route component={DarkModeQueryParamReader} />
+    <PageErrorBoundary><HashRouter>
+      <Suspense fallback={<div className="custos-route-loading" role="status">Opening Custos…</div>}>
         <Switch>
-          <Route exact path={['/', '/index.html', '/defi/launchpad']} component={RealityApp} />
+          <Route exact path={['/', '/index.html', '/legacy-home']} component={CustosLandingPage} />
           <Route path="/reality" component={RealityApp} />
-          <Route exact path="/legacy-home" component={CustosLandingPage} />
+          <Route exact path="/defi/launchpad" component={RealityApp} />
           <Route
             path={['/defi', '/swap', '/send', '/pool', '/find', '/create', '/add', '/remove', '/perp']}
             render={() => (
-              <Web3ReactManager>
-                <DefiShell />
-              </Web3ReactManager>
+              <LegacyApp />
             )}
           />
           <Redirect to="/" />
         </Switch>
-      </HashRouter>
-    </Suspense>
+      </Suspense>
+    </HashRouter></PageErrorBoundary>
   )
 }
