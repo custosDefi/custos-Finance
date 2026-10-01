@@ -1,7 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest'
 import {parseEther,TransactionReceiptNotFoundError} from 'viem'
 const actions=vi.hoisted(()=>({deposit:vi.fn(),withdraw:vi.fn(),prove:vi.fn(),finalize:vi.fn(),deposits:vi.fn(),withdrawals:vi.fn()}))
-vi.mock('viem',async()=>({...await vi.importActual<typeof import('viem')>('viem'),createWalletClient:()=>({extend:()=>({depositTransaction:actions.deposit,initiateWithdrawal:actions.withdraw,proveWithdrawal:actions.prove,finalizeWithdrawal:actions.finalize})})}))
+vi.mock('viem',async()=>({...await vi.importActual<typeof import('viem')>('viem'),createWalletClient:()=>({sendTransaction:actions.deposit,extend:()=>({depositTransaction:actions.deposit,initiateWithdrawal:actions.withdraw,proveWithdrawal:actions.prove,finalizeWithdrawal:actions.finalize})})}))
 vi.mock('viem/op-stack',async()=>({...await vi.importActual<typeof import('viem/op-stack')>('viem/op-stack'),getL2TransactionHashes:actions.deposits,getWithdrawals:actions.withdrawals}))
 import {bridgeL1,bridgeL2,inspectBridge,startBridge,progressWithdrawal,loadBridgeRecords,mergeBridgeRecord,positiveAmount,verifyBridgeNetwork,invalidateBridgeVerification,portal,passer,type BridgeRecord} from './giwaBridge'
 const account='0x1111111111111111111111111111111111111111',hash=('0x'+'a'.repeat(64)) as `0x${string}`,delivery=('0x'+'b'.repeat(64)) as `0x${string}`
@@ -10,7 +10,7 @@ beforeEach(()=>{
   vi.restoreAllMocks();vi.resetAllMocks();invalidateBridgeVerification()
   vi.spyOn(bridgeL1,'getChainId').mockResolvedValue(11155111);vi.spyOn(bridgeL2,'getChainId').mockResolvedValue(91342)
   vi.spyOn(bridgeL1,'getCode').mockResolvedValue('0x1234');vi.spyOn(bridgeL2,'getCode').mockResolvedValue('0x1234')
-  vi.spyOn(bridgeL1,'getBalance').mockResolvedValue(parseEther('1'));vi.spyOn(bridgeL2,'getBalance').mockResolvedValue(parseEther('1'))
+  vi.spyOn(bridgeL1,'estimateGas').mockResolvedValue(61000n);vi.spyOn(bridgeL1,'call').mockResolvedValue({data:'0x'});vi.spyOn(bridgeL1,'getBalance').mockResolvedValue(parseEther('1'));vi.spyOn(bridgeL2,'getBalance').mockResolvedValue(parseEther('1'))
   ;(window as any).ethereum={request:vi.fn(async({method,params})=>method==='eth_accounts'?[account]:method==='eth_chainId'?'0xaa36a7':params)}
 })
 describe('native ETH bridge',()=>{
@@ -20,7 +20,13 @@ describe('native ETH bridge',()=>{
   it('sends a native deposit to the connected wallet through the official bridge',async()=>{
     vi.spyOn(bridgeL2,'buildDepositTransaction').mockResolvedValue({account:undefined,request:{mint:parseEther('.01'),gas:21000n,to:account}} as any)
     actions.deposit.mockResolvedValue(hash);expect(await startBridge('deposit',account,'.01')).toBe(hash)
-    expect(actions.deposit.mock.calls[0][0]).toMatchObject({account,request:{mint:parseEther('.01'),to:account},targetChain:{id:91342}})
+    expect(actions.deposit.mock.calls[0][0]).toMatchObject({account,to:portal,value:parseEther('.01'),gas:121500n,chain:{id:11155111}})
+  })
+  it('does not send when the buffered deposit simulation fails',async()=>{
+    vi.spyOn(bridgeL2,'buildDepositTransaction').mockResolvedValue({request:{mint:parseEther('.01'),to:account,gas:21000n}} as any)
+    vi.mocked(bridgeL1.call).mockRejectedValue(new Error('execution reverted'))
+    await expect(startBridge('deposit',account,'.01')).rejects.toThrow('execution reverted')
+    expect(actions.deposit).not.toHaveBeenCalled()
   })
   it('keeps gas funds and blocks a changed wallet',async()=>{await expect(startBridge('deposit',account,'1')).rejects.toThrow('network fees');await expect(startBridge('deposit','0x2222222222222222222222222222222222222222','.01')).rejects.toThrow('Wallet changed');expect(actions.deposit).not.toHaveBeenCalled()})
   it('switches to GIWA and initiates a native withdrawal',async()=>{

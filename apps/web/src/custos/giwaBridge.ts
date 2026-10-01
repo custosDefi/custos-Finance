@@ -1,4 +1,4 @@
-import {createPublicClient, createWalletClient, custom, http, parseEther, formatEther, getAddress, type Address, type Hash, TransactionReceiptNotFoundError} from 'viem'
+import {createPublicClient, createWalletClient, custom, http, encodeFunctionData, parseAbi, parseEther, formatEther, getAddress, type Address, type Hash, TransactionReceiptNotFoundError} from 'viem'
 import {sepolia, giwaSepolia} from 'viem/chains'
 import {publicActionsL1, publicActionsL2, walletActionsL1, walletActionsL2, getL2TransactionHashes, getWithdrawals} from 'viem/op-stack'
 import {RealityReadCache} from './realityReadCache'
@@ -56,7 +56,14 @@ export async function startBridge(direction:BridgeDirection,account:Address,amou
   if(value>=balance)throw new Error('Insufficient ETH. Keep some ETH for network fees.')
   if(direction==='deposit'){
     const args=await bridgeL2.buildDepositTransaction({account,mint:value,to:account})
-    return client.extend(walletActionsL1()).depositTransaction({account,request:args.request,chain:sepolia,targetChain:giwaSepolia})
+    const request=args.request
+    const data=encodeFunctionData({abi:parseAbi(['function depositTransaction(address to, uint256 value, uint64 gasLimit, bool isCreation, bytes data) payable']),functionName:'depositTransaction',args:[request.to??account,request.value??request.mint??0n,request.gas,request.isCreation??false,request.data??'0x']})
+    const transaction={account,to:portal,value:request.mint,data}
+    const estimate=await bridgeL1.estimateGas(transaction)
+    // Portal resource metering can require more gas than a tight RPC estimate.
+    const gas=estimate+estimate/2n+30000n
+    await bridgeL1.call({...transaction,gas})
+    return client.sendTransaction({...transaction,gas,chain:sepolia})
   }
   const args=await bridgeL1.buildInitiateWithdrawal({account,to:account,value})
   return client.extend(walletActionsL2()).initiateWithdrawal({...args,chain:giwaSepolia})
