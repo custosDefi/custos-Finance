@@ -3,7 +3,7 @@ import {Link,useHistory,useLocation} from 'react-router-dom'
 import {ContractFactory,Contract,utils} from 'ethers'
 import {ArrowLeftRight,Check,Heart,Bookmark,Eye,Search,Plus,Upload,ShieldCheck,Image as ImageIcon,X,Loader2,ExternalLink,Wallet,FileText} from 'lucide-react'
 import artifacts from './reality-artifacts.json'
-import {api,prefetchReality,snapshotReality,ensureGiwa,executeSwap,launchABI,MarketValue,number,openProof,photoUrl,publishAsset,quoteLaunchSwap,quoteSwap,readonly,RealityAsset,RealityConfig,setCredential,short,SwapQuote,tradeLaunch,uploadFile} from './realityClient'
+import {api,prefetchReality,snapshotReality,invalidateRealityReads,ensureGiwa,executeSwap,launchABI,MarketValue,number,openProof,photoUrl,publishAsset,quoteLaunchSwap,quoteSwap,readonly,RealityAsset,RealityConfig,setCredential,short,SwapQuote,tradeLaunch,uploadFile} from './realityClient'
 const PublicBetaPageModule=()=>import('./PublicBetaPage')
 const PublicBetaPage=React.lazy(PublicBetaPageModule)
 import {useRealityMarket} from './useRealityMarket'
@@ -15,6 +15,7 @@ const bridgePageModule=()=>import('./RealityBridgePage')
 const RealityBridgePage=React.lazy(bridgePageModule)
 const navigationReads:Record<string,string>={explore:'/assets?search=&category=&verification=&sort=popular&page=1',market:'/assets?issued=true&search=&category=&verification=&sort=new&page=1&limit=24',rankings:'/market/rankings?metric=trending&period=24h&direction=desc&category=&verification=&page=1&limit=25'}
 function warmNavigation(key:string){if(navigationReads[key])prefetchReality(navigationReads[key]);const pageModules:Record<string,()=>Promise<unknown>>={season:PublicBetaPageModule,nft:RealityNftPageModule,account:RealityAccountPageModule,stake:RealityStakePageModule};if(pageModules[key])void pageModules[key]().catch(()=>{});if(key==='swap')void bridgePageModule().then(module=>module.prepareBridge()).catch(()=>{})}
+import {listenRealityWallet} from './realityWalletEvents'
 import RealityVerifiedMark from './RealityVerifiedMark'
 const RealityPriceChartModule=()=>import('./RealityPriceChart')
 const RealityPriceChart=React.lazy(RealityPriceChartModule)
@@ -43,7 +44,7 @@ export default function RealityApp(){
   useEffect(()=>{const timer=setTimeout(()=>{for(const key of ['market','rankings'])warmNavigation(key)},1200);return()=>clearTimeout(timer)},[session])
   useEffect(()=>{live.current=true;api<RealityConfig>('/config').then(setConfig).catch(e=>setError(e.message));return()=>{live.current=false;setCredential('')}},[])
   useEffect(()=>{const expired=()=>{setSession(null);setToast('Please reconnect your wallet and sign in.')};window.addEventListener('custos-auth-expired',expired);return()=>window.removeEventListener('custos-auth-expired',expired)},[])
-  useEffect(()=>{const injected=(window as any).ethereum;if(!injected?.on)return;const clear=()=>{setCredential('');setSession(null);setToast('Account or network changed. Please sign in again.')};injected.on('accountsChanged',clear);injected.on('chainChanged',clear);return()=>{injected.removeListener?.('accountsChanged',clear);injected.removeListener?.('chainChanged',clear)}},[])
+  useEffect(()=>listenRealityWallet((window as any).ethereum,view==='swap',()=>{setCredential('');setSession(null);setToast('Account or network changed. Please sign in again.')},invalidateRealityReads),[view])
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),8000);return()=>clearTimeout(timer)},[toast])
   const run=async(fn:()=>Promise<any>)=>{try{return await fn()}catch(e:any){setToast(e.reason||e.message||'Action failed');return null}}
   async function connect(){if(!config)return;setConnecting(true);await run(async()=>{const provider=await ensureGiwa(config),signer=provider.getSigner(),wallet=await signer.getAddress();const challenge=await api('/auth/challenge',{wallet});const signature=await signer.signMessage(challenge.message);const result=await api('/auth/login',{id:challenge.id,signature});setCredential(result.token);setSession(result);await api('/season/register',{ref_code:localStorage.getItem('custos_ref')||''});setToast('Wallet signed in')});setConnecting(false)}
