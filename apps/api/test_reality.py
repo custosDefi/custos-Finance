@@ -475,6 +475,33 @@ def test_market_quotes_share_ranking_cache_and_do_not_wait_for_slow_rpc(setup,mo
     assert c.get('/api/reality/assets/'+a['id']+'/market').json()['reserve']==.01
     assert c.get('/api/reality/market/rankings').json()['items'][0]['price']==.2
 
+def test_staking_index_cursor_is_scoped_to_each_redeployed_vault(setup,monkeypatch):
+    import asyncio
+    from eth_abi import encode
+    c,owner,*_=setup
+    old_vault='0x'+'51'*20;new_vault='0x'+'52'*20
+    monkeypatch.setenv('REALITY_CFI_STAKING',new_vault)
+    monkeypatch.setenv('REALITY_CFI_START_BLOCK','100')
+    with r.engine().begin() as db:
+        db.execute(r.insert(r.runtime_settings),[{'key':'cfi_index_block','value':'99999'},{'key':'cfi_index_block:'+old_vault,'value':'99999'}])
+    queries=[]
+    log={'address':new_vault,'topics':[r.STAKE_TOPIC,'0x'+owner.address.lower()[2:].rjust(64,'0')],
+         'data':'0x'+encode(['uint256']*4,[10**15,2*10**18,2000*10**18,r.now()]).hex(),
+         'transactionHash':'0x'+'42'*32,'logIndex':'0x0','blockNumber':hex(100)}
+    async def rpc(method,params):
+        if method=='eth_chainId':return hex(91342)
+        if method=='eth_blockNumber':return hex(104)
+        if method=='eth_getBlockByNumber':return {'timestamp':hex(r.now())}
+        if method=='eth_getLogs':queries.append(params[0]);return [log]
+        raise AssertionError(method)
+    monkeypatch.setattr(r,'rpc',rpc)
+    asyncio.run(r.sync_staking())
+    assert queries[0]['address']==new_vault and queries[0]['fromBlock']==hex(100)
+    with r.engine().connect() as db:
+        assert db.execute(r.select(r.runtime_settings.c.value).where(r.runtime_settings.c.key=='cfi_index_block:'+new_vault)).scalar()=='103'
+        assert db.execute(r.select(r.runtime_settings.c.value).where(r.runtime_settings.c.key=='cfi_index_block:'+old_vault)).scalar()=='99999'
+        assert db.execute(r.select(r.func.count()).select_from(r.stake_events)).scalar()==1
+
 def test_binance_staking_quotes_use_operator_signature_and_authenticated_wallet(setup,monkeypatch):
     c,owner,other,_,auth=setup;h=auth(owner);vault='0x'+'51'*20;signer=Account.create()
     monkeypatch.setenv('REALITY_CFI_STAKING',vault);monkeypatch.setenv('REALITY_CFI_PRICE_SOURCE','binance');monkeypatch.setenv('CFI_QUOTE_SIGNER_KEY',signer.key.hex())

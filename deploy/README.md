@@ -23,10 +23,13 @@ sudo -n docker compose --env-file /opt/custos/.env \
 The relayer uses `deploy-relayer`, now rebuildable from `apps/relayer` using
 `docker compose ... build relayer`. Retain the old image's rollback tag.
 Its wallet and JSON state persist across deployments.
-CFI deposits need `CFI_QUOTE_SIGNER_KEY` in the secret environment file matching
-the vault's immutable `quoteSigner()`, currently
-`0x33AFD96fE7E87C297c1a46dFE659B541DDF97E77`. A generated replacement key cannot
-sign for the existing vault. Never place this key in frontend build variables.
+CFI now uses vault `0x91618694D70100edd9e6508A1d680Ea4E0797592`, whose immutable
+signer is the existing project wallet `0xee379A4fC908F03Cd886197945bf964806709D97`.
+For this explicitly requested testnet replacement, `deploy/reality.vm.env`
+references the first env file's `RELAYER_PRIVATE_KEY` as `CFI_QUOTE_SIGNER_KEY`.
+No private key is committed. Load both env files in the order shown above.
+A production rollout should use a separate signing wallet and vault, not share
+the funded Relayer key with the API. See `docs/CFI-REDEPLOYMENT-20261002.md`.
 
 ### Low-disk frontend releases
 

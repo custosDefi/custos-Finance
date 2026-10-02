@@ -48,7 +48,9 @@ low-severity advisories remain; a major SDK migration is separate work.
 
 ## External requirements not resolved by merging
 
-CFI deposits still need the original immutable vault signer's secret.
+At the time of integration, CFI deposits needed the original immutable vault
+signer's secret. A later authorized replacement resolves that configuration:
+see `CFI-REDEPLOYMENT-20261002.md` for the active vault and project signer.
 Pyth Pro still needs a credential entitled to the configured feeds. Neither
 issue can be fixed by replacing keys/contracts or showing fallback data as LIVE.
 The NFT is genuinely sold out (1,111/1,111). This is testnet integration testing,

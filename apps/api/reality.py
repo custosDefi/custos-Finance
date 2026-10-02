@@ -565,7 +565,9 @@ async def sync_staking():
     cfg=config();address=cfg['cfi_staking'];first=cfg['cfi_start_block']
     if not address or not first:return
     if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
-    with engine().connect() as db:cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='cfi_index_block')).scalar()
+    cursor_key='cfi_index_block:'+address.lower()
+    updated_key='cfi_index_updated_at:'+address.lower()
+    with engine().connect() as db:cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key==cursor_key)).scalar()
     start=max(first,int(cursor)-16) if cursor else first
     latest=int(await rpc('eth_blockNumber',[]),16)-2;end=min(latest,start+4999)
     for a in range(start,end+1,1000):
@@ -580,16 +582,17 @@ async def sync_staking():
         with engine().begin() as db:
             db.execute(delete(stake_events).where(stake_events.c.block_number>=a,stake_events.c.block_number<=b))
             if records:db.execute(insert(stake_events),records)
-            db.execute(delete(runtime_settings).where(runtime_settings.c.key=='cfi_index_block'));db.execute(insert(runtime_settings).values(key='cfi_index_block',value=str(b+1)))
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key==cursor_key));db.execute(insert(runtime_settings).values(key=cursor_key,value=str(b+1)))
     with engine().begin() as db:
-        db.execute(delete(runtime_settings).where(runtime_settings.c.key=='cfi_index_updated_at'));db.execute(insert(runtime_settings).values(key='cfi_index_updated_at',value=str(now()) if end==latest else '0'))
+        db.execute(delete(runtime_settings).where(runtime_settings.c.key==updated_key));db.execute(insert(runtime_settings).values(key=updated_key,value=str(now()) if end==latest else '0'))
 
 @router.get('/account/staking')
 def account_staking(page:int=1,wallet=Depends(wallet_auth)):
     page=max(1,page)
+    updated_key='cfi_index_updated_at:'+config()['cfi_staking'].lower()
     with engine().connect() as db:
         rows=db.execute(select(stake_events).where(stake_events.c.wallet==wallet).order_by(stake_events.c.block_number.desc(),stake_events.c.id.desc()).offset((page-1)*50).limit(51)).mappings().all()
-        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='cfi_index_updated_at')).scalar()
+        updated=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key==updated_key)).scalar()
     return {'items':[dict(r) for r in rows[:50]],'has_more':len(rows)>50,'page':page,'indexed':bool(updated and 0<=now()-int(updated)<120)}
 
 @router.post('/assets/{id}/attach')

@@ -2,9 +2,10 @@
 
 The Reality UI is English. Account pages provide display-name editing, native ETH/CFI/principal balances, project holdings and wallet-scoped transaction history.
 
-Active GIWA Sepolia (91342) vault and account-bound CFI receipt: `0xE38214dEAC49b139d1a6376b3A58Ff72B3D0eE87`.
-Deployment transaction: `0x4e4b230951e4d2039d55f15d30ed7e4ca7fdd21201fe5e41510413de59e441d2`, block 37482741.
-Immutable quote signer: `0x33AFD96fE7E87C297c1a46dFE659B541DDF97E77`.
+Active GIWA Sepolia (91342) vault and account-bound CFI receipt: `0x91618694D70100edd9e6508A1d680Ea4E0797592`.
+Deployment transaction: `0x192a3cf475abf72b24b29466839feeb365ec4454a3ab24519f8587f855420d9f`, block 37573108 (October 2 replacement).
+Immutable quote signer: project wallet `0xee379A4fC908F03Cd886197945bf964806709D97`.
+Previous Binance vault `0xE38214dEAC49b139d1a6376b3A58Ff72B3D0eE87` had zero principal/supply/balance before replacement. Its missing immutable signing key prevented new signed deposits; no funds were migrated.
 
 - ETH stays in the immutable contract. There is no administrator withdrawal.
 - Minting uses the Binance public ETHUSDT ticker: https://data-api.binance.vision/api/v3/ticker/price?symbol=ETHUSDT . No Binance API key or Pyth subscription is required for this staking flow.
@@ -18,13 +19,13 @@ Immutable quote signer: `0x33AFD96fE7E87C297c1a46dFE659B541DDF97E77`.
 ### Backend configuration
 
 ```env
-REALITY_CFI_STAKING=0xE38214dEAC49b139d1a6376b3A58Ff72B3D0eE87
-REALITY_CFI_START_BLOCK=37482741
+REALITY_CFI_STAKING=0x91618694D70100edd9e6508A1d680Ea4E0797592
+REALITY_CFI_START_BLOCK=37573108
 REALITY_CFI_PRICE_SOURCE=binance
 CFI_QUOTE_SIGNER_KEY=
 ```
 
-The private local `apps/api/.env` already contains the dedicated quote signing key. It is excluded from Git and project archives. Preserve that existing key securely when moving the backend: a newly generated key will not match the deployed immutable quote signer. Never put it in a VITE_ variable. Pyth settings may still be used by unrelated legacy features.
+The replacement explicitly uses the existing project wallet. On the VM, Compose resolves `CFI_QUOTE_SIGNER_KEY` from the secret `RELAYER_PRIVATE_KEY`; tracked configuration contains only a variable reference. Do not generate a different key for this immutable signer or put a key in a VITE_ variable. Production should separate signer and Relayer wallets. Pyth settings remain independent of CFI staking.
 
 Contract commands in `contracts/launch-bridge`: `node scripts/compile-cfi-binance.cjs`, `node scripts/test-cfi-binance.cjs`. The deployment script estimates by default and sends only with `--send`; an existing verified record is reused.
 
