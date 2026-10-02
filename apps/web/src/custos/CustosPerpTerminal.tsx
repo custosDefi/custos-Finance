@@ -40,7 +40,7 @@ import {
   VAULT_ABI,
   ZERO,
 } from './perpContracts';
-import { useMarketStream } from './useMarketStream';
+import { hasLivePythQuote, useMarketStream } from './useMarketStream';
 import './perpTerminal.css';
 
 
@@ -327,8 +327,8 @@ function PerpTerminalApp({
         );
 
         if (!response.ok) {
-          const body = await response.text();
-          throw new Error(body);
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.detail?.message || 'Historical data provider is unavailable. Retry later.');
         }
 
         const body = await response.json();
@@ -939,15 +939,15 @@ function PerpTerminalApp({
       );
 
       if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`Pyth Core update failed: ${body}`);
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail?.message || 'Pyth Core is unavailable. No transaction was submitted.');
       }
 
       const body = await response.json();
 
       if (
         Array.isArray(body.updateData) &&
-        (GIWA.local || body.oracleMode === 'fallback' || body.source === 'testnet-fallback')
+        GIWA.local
       ) {
         return body;
       }
@@ -1031,10 +1031,9 @@ function PerpTerminalApp({
       setPendingTxHash('');
 
       const quoteSource = market?.quote?.source;
-      const isConfiguredFallback =
-        quoteSource === 'testnet-fallback' || quoteSource === 'local-mock';
+      const isConfiguredFallback = GIWA.local && quoteSource === 'local-mock';
 
-      if (!market?.quote?.price || (!market.quote.fresh && !isConfiguredFallback)) {
+      if (!market?.quote?.price || (!hasLivePythQuote(market.quote) && !isConfiguredFallback)) {
         throw new Error(`${symbol} has no usable price right now.`);
       }
 
@@ -1565,16 +1564,16 @@ function PerpTerminalApp({
 
           <button
             className={`tradeButton ${side}`}
-            disabled={busy || !account}
+            disabled={busy || !account || (!GIWA.local && !hasLivePythQuote(market?.quote))}
             onClick={openPosition}
           >
             <Zap size={15} />
-            {busy ? 'Processing…' : `${side === 'long' ? 'Long' : 'Short'} ${symbol}`}
+            {busy ? 'Processing…' : !GIWA.local && !hasLivePythQuote(market?.quote) ? 'Live oracle unavailable' : `${side === 'long' ? 'Long' : 'Short'} ${symbol}`}
           </button>
 
           <div className="statusBox">
             <Radio size={13} />
-            <span>{status || 'Ready. Oracle fee is fetched on each onchain action.'}</span>
+            <span>{status || (!GIWA.local && !hasLivePythQuote(market?.quote) ? 'Live Pyth access unavailable. New positions are paused; fallback prices are not trade quotes.' : 'Ready. Oracle fee is fetched on each onchain action.')}</span>
             {pendingTxHash && (
               <a
                 href={`${GIWA.explorer}/tx/${pendingTxHash}`}
@@ -2007,8 +2006,7 @@ function CandlestickChart({
 
       {(error || chartRuntimeError) && candles.length === 0 && (
         <div className="exchangeChartOverlay exchangeChartError">
-          {chartRuntimeError ||
-            'History request failed. The displayed quote may be delayed or a testnet fallback.'}
+          {chartRuntimeError || error || 'Historical data provider is unavailable.'}
         </div>
       )}
     </div>

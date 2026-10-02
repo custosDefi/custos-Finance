@@ -33,7 +33,7 @@ the funded Relayer key with the API. See `docs/CFI-REDEPLOYMENT-20261002.md`.
 
 ### Low-disk frontend releases
 
-The VM has a small root disk. Compile and test the frontend locally instead of
+The VM root disk was expanded from 10 GB to 30 GB on October 2. Compile and test the frontend locally instead of
 installing Node dependencies on the VM. Build `packages/swap-sdk` first; refresh
 the frontend's `file:` SDK dependency if it was installed before an SDK update.
 
@@ -53,6 +53,7 @@ VITE_GIWA_CHAIN_ID=91342 VITE_RELAYER_API_BASE=/relayer \
 npm run build -- --outDir "$release_dir/dist" --emptyOutDir
 cp ../../deploy/frontend-static.Dockerfile "$release_dir/Dockerfile"
 cp ../../deploy/nginx.vm.conf "$release_dir/nginx.vm.conf"
+cp ../../deploy/security-headers.conf "$release_dir/security-headers.conf"
 tar -czf "$release_dir.tar.gz" -C "$release_dir" .
 ```
 

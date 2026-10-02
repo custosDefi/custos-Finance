@@ -1,15 +1,10 @@
 import { Web3Provider } from '@ethersproject/providers'
 import { InjectedConnector } from '@web3-react/injected-connector'
-import { WalletConnectConnector } from '@web3-react/walletconnect-connector'
 import { WalletLinkConnector } from '@web3-react/walletlink-connector'
-import { PortisConnector } from '@web3-react/portis-connector'
 
-import { FortmaticConnector } from './Fortmatic'
 import { NetworkConnector } from './NetworkConnector'
 
 const NETWORK_URL = import.meta.env.VITE_NETWORK_URL || import.meta.env.VITE_GIWA_RPC || 'https://sepolia-rpc.giwa.io'
-const FORMATIC_KEY = import.meta.env.VITE_FORTMATIC_KEY
-const PORTIS_ID = import.meta.env.VITE_PORTIS_ID
 
 export const NETWORK_CHAIN_ID: number = parseInt(import.meta.env.VITE_CHAIN_ID ?? import.meta.env.VITE_GIWA_CHAIN_ID ?? '91342', 10)
 
@@ -30,26 +25,7 @@ export const injected = new InjectedConnector({
   supportedChainIds: [1, 3, 4, 5, 42, 1337, 31337, 47805, 47806, 12357, 91342, 11155111]
 })
 
-export const walletconnect = new WalletConnectConnector({
-  rpc: { [NETWORK_CHAIN_ID]: NETWORK_URL },
-  bridge: 'https://bridge.walletconnect.org',
-  qrcode: true,
-  // pollingInterval: 15000
-})
-
-// mainnet only
-export const fortmatic = new FortmaticConnector({
-  apiKey: FORMATIC_KEY ?? '',
-  chainId: 1
-})
-
-// mainnet only
-export const portis = new PortisConnector({
-  dAppId: PORTIS_ID ?? '',
-  networks: [1]
-})
-
-// mainnet only
+// Retired hosted wallets and WalletConnect v1 are not bundled.
 export const walletlink = new WalletLinkConnector({
   url: NETWORK_URL,
   appName: 'Custos Swap',

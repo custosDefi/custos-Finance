@@ -23,6 +23,8 @@ const ETHERSCAN_PREFIXES: Record<number, string> = {
   4: 'rinkeby.etherscan.io',
   5: 'goerli.etherscan.io',
   42: 'kovan.etherscan.io',
+  91342: 'sepolia-explorer.giwa.io',
+  11155111: 'sepolia.etherscan.io',
   47805: 'scan.rei.network',
   12357:'scan-test.rei.network'
 }

@@ -30,7 +30,7 @@ services:
       PYTH_STREAM_CHANNEL: ${PYTH_STREAM_CHANNEL:-fixed_rate@200ms}
       PYTH_STREAM_ENDPOINTS: ${PYTH_STREAM_ENDPOINTS:-}
     ports:
-      - "8000:8080"
+      - "127.0.0.1:8000:8080"
     volumes:
       - ../runtime-data:/data
     healthcheck:

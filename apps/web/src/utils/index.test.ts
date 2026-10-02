@@ -13,6 +13,11 @@ import {
 
 describe('utils', () => {
   describe('#getEtherscanLink', () => {
+    it('uses the GIWA explorer for GIWA tokens and transactions', () => {
+      expect(getEtherscanLink(91342, 'abc', 'token')).toEqual('https://sepolia-explorer.giwa.io/token/abc')
+      expect(getEtherscanLink(91342, 'abc', 'transaction')).toEqual('https://sepolia-explorer.giwa.io/tx/abc')
+      expect(getEtherscanLink(11155111, 'abc', 'address')).toEqual('https://sepolia.etherscan.io/address/abc')
+    })
     it('correct for tx', () => {
       expect(getEtherscanLink(1, 'abc', 'transaction')).toEqual('https://etherscan.io/tx/abc')
     })

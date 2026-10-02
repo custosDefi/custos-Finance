@@ -88,6 +88,9 @@
 .rl-market-chain{display:flex;gap:9px;align-items:center}.rl-market-chain span{display:inline-flex;align-items:center;gap:6px;border:1px solid #dde7e1;border-radius:9px;background:#fff;color:#708378;padding:8px 12px;font-size:12px}
 .rl-rankings-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 8px 0 15px}.rl-rankings-toolbar>.rl-tabs{gap:28px;border:0}.rl-rankings-toolbar .rl-tabs button{font-size:13px;padding:14px 0}.rl-rankings-toolbar .rl-market-segments{flex-shrink:0}
 .rl-rankings-board{border-radius:14px}.rl-rankings-filters{display:flex;align-items:center;gap:18px;border-bottom:1px solid #e5ece7;padding:16px 19px;flex-wrap:wrap}.rl-rankings-filters select{font-size:12px;padding:8px 11px;background:#fafcfb}.rl-ranking-count{font-size:11px;color:#8a9b90;margin-left:auto}
+/* Anchor absolutely positioned screen-reader labels inside the scrollport,
+   rather than letting the wide table's static position widen the document. */
+.rl-rankings-board .rl-table-scroll{position:relative;max-width:100%;min-width:0;overscroll-behavior-x:contain}
 .rl-ranking-notice{padding:10px 20px;margin:0;border-bottom:1px solid #eee5d3;background:#fff9ee;color:#937b4e;font-size:12px}
 .rl-rankings-table{width:100%;min-width:980px;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
 .rl-rankings-table th,.rl-rankings-table td{padding:15px 17px;border-bottom:1px solid #e6ece8;text-align:right}

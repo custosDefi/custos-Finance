@@ -76,7 +76,7 @@ function TokenWarningCard({ token }: TokenWarningCardProps) {
           </TYPE.main>
           {chainId && (
             <ExternalLink style={{ fontWeight: 400 }} href={getEtherscanLink(chainId, token.address, 'token')}>
-              <TYPE.blue title={token.address}>{shortenAddress(token.address)} {t('viewOnEtherscanParen')}</TYPE.blue>
+              <TYPE.blue title={token.address}>{shortenAddress(token.address)} {chainId === 91342 ? '(View on GIWA Explorer)' : t('viewOnEtherscanParen')}</TYPE.blue>
             </ExternalLink>
           )}
         </AutoColumn>

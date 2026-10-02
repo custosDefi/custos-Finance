@@ -652,12 +652,18 @@ async def stop_perp_stream() -> None:
 
 @router.get("/api/perp/health")
 async def perp_health() -> dict[str, Any]:
+    live = any(q.get("fresh") and q.get("source") == "pyth-pro-websocket"
+               and abs(time.time() * 1_000_000 - q.get("feedUpdateTimestampUs", 0)) < 15_000_000
+               for q in hub.quotes.values())
     return {
         "ok": True,
         "chainId": int(network_config()["chain_id"]),
         "pythCoreConfigured": bool(PYTH_API_KEY),
         "pythProConfigured": bool(PYTH_PRO_API_KEY),
         "streamChannel": PYTH_STREAM_CHANNEL,
+        "pythLive": live,
+        "degraded": not is_local_network() and not live,
+        "providerErrors": [n["error"] for n in hub.node_status.values() if n.get("error")],
     }
 
 
@@ -688,40 +694,21 @@ async def pyth_update(symbol: str) -> dict[str, Any]:
             headers=auth_headers(PYTH_API_KEY),
         )
     except httpx.HTTPError as exc:
-        return {
-            "symbol": market.symbol,
-            "feedId": market.core_feed_id,
-            "updateData": [],
-            "parsed": None,
-            "source": "testnet-fallback",
-            "oracleMode": "fallback",
-            "warning": f"{type(exc).__name__}: {exc}",
-        }
+        raise HTTPException(503, detail={"code": "PYTH_UNAVAILABLE", "message": "Pyth Core is unavailable. No signed oracle update; transaction not submitted."}) from exc
 
     if response.status_code >= 400:
-        return {
-            "symbol": market.symbol,
-            "feedId": market.core_feed_id,
-            "updateData": [],
-            "parsed": None,
-            "source": "testnet-fallback",
-            "oracleMode": "fallback",
-            "warning": f"Hermes {response.status_code}: {response.text[:300]}",
-        }
+        raise HTTPException(503, detail={"code": "PYTH_ENTITLEMENT_REQUIRED" if response.status_code in (401,403) else "PYTH_UNAVAILABLE", "message": "Pyth Core access is unavailable. Configure a credential entitled to this feed. No signed oracle update; transaction not submitted."})
 
-    body = response.json()
-    binary = (body.get("binary") or {}).get("data") or []
+    try:
+        body = response.json()
+        if not isinstance(body, dict): raise ValueError("Invalid payload")
+    except ValueError as exc:
+        raise HTTPException(503, detail={"code":"PYTH_INVALID_RESPONSE", "message":"Pyth Core returned invalid data; transaction not submitted."}) from exc
+    binary_body = body.get("binary")
+    binary = binary_body.get("data") if isinstance(binary_body, dict) else None
 
-    if not binary:
-        return {
-            "symbol": market.symbol,
-            "feedId": market.core_feed_id,
-            "updateData": [],
-            "parsed": None,
-            "source": "testnet-fallback",
-            "oracleMode": "fallback",
-            "warning": "Hermes returned no binary update",
-        }
+    if not isinstance(binary, list) or not binary or not all(isinstance(value, str) and value.removeprefix("0x") and len(value.removeprefix("0x")) % 2 == 0 and all(c in "0123456789abcdefABCDEF" for c in value.removeprefix("0x")) for value in binary):
+        raise HTTPException(503, detail={"code":"PYTH_NO_SIGNED_UPDATE", "message":"Pyth Core returned no signed update; transaction not submitted."})
 
     update_data = [
         value
@@ -731,6 +718,7 @@ async def pyth_update(symbol: str) -> dict[str, Any]:
     ]
 
     parsed = body.get("parsed") or []
+    if not isinstance(parsed, list): parsed = []
 
     return {
         "symbol": market.symbol,
@@ -801,10 +789,7 @@ async def market_history(
             )
 
             if response.status_code >= 400:
-                pyth_error = (
-                    f"Pyth History {response.status_code}: "
-                    f"{response.text[:600]}"
-                )
+                pyth_error = "Pyth history access is not entitled for this credential." if response.status_code in (401,403) else "Pyth history provider is temporarily unavailable."
             else:
                 body = response.json()
                 if body.get("s") == "ok":
@@ -821,9 +806,9 @@ async def market_history(
 
                     pyth_error = "Pyth History returned empty candles"
                 else:
-                    pyth_error = f"Pyth History returned: {body}"
+                    pyth_error = "Pyth history returned no usable candles."
         except Exception as exc:
-            pyth_error = f"Pyth History {type(exc).__name__}: {exc}"
+            pyth_error = "Pyth history provider is temporarily unavailable."
 
     if market.asset_type == "equity":
         try:
@@ -858,16 +843,13 @@ async def market_history(
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
-                detail=(
-                    f"{pyth_error}; Nasdaq fallback "
-                    f"{type(exc).__name__}: {exc}"
-                ),
+                detail={"code":"HISTORY_UNAVAILABLE", "message":"Pyth and Nasdaq historical data are unavailable. Retry later."},
             ) from exc
 
     if not PYTH_PRO_API_KEY:
-        raise HTTPException(status_code=503, detail=pyth_error)
+        raise HTTPException(status_code=503, detail={"code":"PYTH_HISTORY_UNAVAILABLE", "message":pyth_error})
 
-    raise HTTPException(status_code=502, detail=pyth_error)
+    raise HTTPException(status_code=503, detail={"code":"PYTH_HISTORY_UNAVAILABLE", "message":pyth_error})
 
 
 @router.websocket("/ws/markets")

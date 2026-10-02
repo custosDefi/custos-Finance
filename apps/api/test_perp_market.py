@@ -2,9 +2,68 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+import pytest
+import httpx
 
 sys.path.insert(0, str(Path(__file__).parent))
 import perp_market as p
+
+
+def stub_http(monkeypatch, status=200, payload=None, text=None):
+    monkeypatch.setattr(p, 'is_local_network', lambda: False)
+    class Client:
+        async def get(self, *args, **kwargs):
+            return httpx.Response(status, json=payload, text=text,
+                                  request=httpx.Request('GET', 'https://provider.test'))
+    monkeypatch.setattr(p, 'http', Client())
+
+
+@pytest.mark.parametrize('status', [401, 403, 500])
+def test_oracle_denial_fails_closed_without_unsigned_fallback(monkeypatch, status):
+    stub_http(monkeypatch, status=status, text='private-provider-detail')
+    with pytest.raises(p.HTTPException) as error:
+        asyncio.run(p.pyth_update('BTC'))
+    assert error.value.status_code == 503
+    assert error.value.detail['code'] == ('PYTH_ENTITLEMENT_REQUIRED' if status in (401,403) else 'PYTH_UNAVAILABLE')
+    assert 'private-provider-detail' not in str(error.value.detail)
+
+
+@pytest.mark.parametrize('payload', [{}, {'binary': []}, {'binary': {'data': []}}, {'binary': {'data': ['not-hex']}}, {'binary': {'data': 'abc'}}])
+def test_missing_or_malformed_signed_updates_are_rejected(monkeypatch, payload):
+    stub_http(monkeypatch, payload=payload)
+    with pytest.raises(p.HTTPException) as error:
+        asyncio.run(p.pyth_update('ETH'))
+    assert error.value.status_code == 503
+
+
+def test_valid_signed_update_is_forwarded(monkeypatch):
+    stub_http(monkeypatch, payload={'binary': {'data': ['deadbeef']}, 'parsed': []})
+    result = asyncio.run(p.pyth_update('ETH'))
+    assert result['updateData'] == ['0xdeadbeef']
+    assert 'oracleMode' not in result
+
+
+def test_history_denial_returns_safe_structured_error(monkeypatch):
+    stub_http(monkeypatch, status=403, text='<html>private-provider-detail</html>')
+    monkeypatch.setattr(p, 'PYTH_PRO_API_KEY', 'test-key')
+    with pytest.raises(p.HTTPException) as error:
+        asyncio.run(p.market_history('BTC'))
+    assert error.value.status_code == 503
+    assert error.value.detail['code'] == 'PYTH_HISTORY_UNAVAILABLE'
+    assert '<html>' not in str(error.value.detail)
+
+
+def test_local_mock_oracle_remains_available(monkeypatch):
+    monkeypatch.setattr(p, 'is_local_network', lambda: True)
+    assert asyncio.run(p.pyth_update('ETH'))['source'] == 'local-mock'
+
+
+def test_health_does_not_equate_key_configuration_with_live_prices(monkeypatch):
+    monkeypatch.setattr(p, 'is_local_network', lambda: False)
+    monkeypatch.setattr(p.hub, 'quotes', {'BTC': {'source': 'testnet-fallback', 'fresh': False}})
+    status = asyncio.run(p.perp_health())
+    assert status['degraded']
+    assert not status['pythLive']
 
 
 def run_worker(monkeypatch, messages, attempts=1):
