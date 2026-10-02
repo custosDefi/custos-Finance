@@ -26,6 +26,9 @@ This is a selective port, not a wholesale merge of the old snapshot.
 Relayer recovery additionally retains submitted transaction hashes during RPC
 receipt failures and honors the configured destination receipt confirmations.
 GIWA token icons no longer probe nonexistent Ethereum-mainnet Trust Wallet art.
+The Relayer pins a patched compatible `ws` 8.x via an npm override rather than
+migrating the ethers API during this integration. Legacy ethers 5 elliptic
+low-severity advisories remain; a major SDK migration is separate work.
 
 ## Verification
 
@@ -50,3 +53,19 @@ Pyth Pro still needs a credential entitled to the configured feeds. Neither
 issue can be fixed by replacing keys/contracts or showing fallback data as LIVE.
 The NFT is genuinely sold out (1,111/1,111). This is testnet integration testing,
 not a security audit or certification for mainnet use.
+
+## VM release result
+
+The integrated application at `c1e7282` was pushed to main and deployed to
+https://www.custosfinance.xyz. API, frontend and Relayer containers are healthy;
+Nginx configuration passed. On-server file hashes match the tested source.
+Live Chrome verified all listed routes, mobile NFT layout, same-origin WebSocket
+transport and a 1 CUSTOS-A → 0.996502 CUSTOS-B V2 quote without sending a trade.
+Both Relayer chains scan with no errors and the existing two executed messages
+are retained. SQLite files, wallet environment and runtime state were not replaced.
+
+The compatible Relayer `ws` patch passed unit and isolated dual-chain tests;
+its npm audit reports zero high/moderate/critical findings (14 low-severity
+legacy ethers advisories remain). Rollback images and old hashed frontend
+chunks are retained. The VM still has a small disk (~861 MB free immediately
+after the application release); capacity expansion is recommended separately.
