@@ -49,7 +49,7 @@ async function wallet(direction:BridgeDirection,account:Address){
   if(Number(await provider.request({method:'eth_chainId'}))!==chain.id||(await bridgeAccount()).toLowerCase()!==account.toLowerCase())throw new Error('Wallet network or account does not match.')
   return createWalletClient({account,chain,transport:custom(provider)} )
 }
-export async function startBridge(direction:BridgeDirection,account:Address,amount:string):Promise<Hash>{
+export async function startBridge(direction:BridgeDirection,account:Address,amount:string,onGas?:(gas:bigint)=>void):Promise<Hash>{
   const value=positiveAmount(amount);await verifyBridgeNetwork(true)
   const client=await wallet(direction,account)
   const balance=await (direction==='deposit'?bridgeL1:bridgeL2).getBalance({address:account})
@@ -61,8 +61,10 @@ export async function startBridge(direction:BridgeDirection,account:Address,amou
     const transaction={account,to:portal,value:request.mint,data}
     const estimate=await bridgeL1.estimateGas(transaction)
     // Portal resource metering can require more gas than a tight RPC estimate.
-    const gas=estimate+estimate/2n+30000n
+    const buffered=estimate+estimate/2n+30000n
+    const gas=buffered<200000n?200000n:buffered
     await bridgeL1.call({...transaction,gas})
+    onGas?.(gas)
     return client.sendTransaction({...transaction,gas,chain:sepolia})
   }
   const args=await bridgeL1.buildInitiateWithdrawal({account,to:account,value})

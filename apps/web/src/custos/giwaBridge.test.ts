@@ -20,7 +20,7 @@ describe('native ETH bridge',()=>{
   it('sends a native deposit to the connected wallet through the official bridge',async()=>{
     vi.spyOn(bridgeL2,'buildDepositTransaction').mockResolvedValue({account:undefined,request:{mint:parseEther('.01'),gas:21000n,to:account}} as any)
     actions.deposit.mockResolvedValue(hash);expect(await startBridge('deposit',account,'.01')).toBe(hash)
-    expect(actions.deposit.mock.calls[0][0]).toMatchObject({account,to:portal,value:parseEther('.01'),gas:121500n,chain:{id:11155111}})
+    expect(actions.deposit.mock.calls[0][0]).toMatchObject({account,to:portal,value:parseEther('.01'),gas:200000n,chain:{id:11155111}})
   })
   it('does not send when the buffered deposit simulation fails',async()=>{
     vi.spyOn(bridgeL2,'buildDepositTransaction').mockResolvedValue({request:{mint:parseEther('.01'),to:account,gas:21000n}} as any)
