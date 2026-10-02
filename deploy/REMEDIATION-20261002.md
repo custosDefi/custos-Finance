@@ -51,7 +51,9 @@ overrides are not a valid security fix. This is not a mainnet security audit.
 
 ## Verification
 
-Frontend: 173 tests passed, TypeScript and fresh production build passed.
+Remote main's real on-chain OHLC candles and red/green volume update (`4bdbec2`)
+was merged before building, including its 4h/1d chart resolutions.
+Frontend: 175 tests passed, TypeScript and fresh production build passed.
 Backend: 46 tests passed, including denied/malformed oracle payload rejection,
 local mock compatibility, structured history errors and degraded health.
 Relayer: 3 persistence/retry/replay tests passed. Browser regression checks cover
