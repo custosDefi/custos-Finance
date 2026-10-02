@@ -833,9 +833,9 @@ async def market_rankings(request:Request,period:Literal['5m','1h','6h','24h']='
     return {'items':selected,'total':total,'has_more':page*limit<total,'page':page,'period':period,'metric':metric,'indexed':complete,'indexed_at':int(updated or 0),'as_of':stamp,'quotes_pending':quotes_pending}
 
 @router.get('/assets/{id}/chart')
-def asset_chart(id:str,period:Literal['1h','24h','7d']='24h',resolution:Literal['1m','5m','15m','1h']|None=None):
+def asset_chart(id:str,period:Literal['1h','24h','7d']='24h',resolution:Literal['1m','5m','15m','1h','4h','1d']|None=None):
     duration,step={'1h':(3600,60),'24h':(86400,900),'7d':(604800,3600)}[period]
-    if resolution:step={'1m':60,'5m':300,'15m':900,'1h':3600}[resolution]
+    if resolution:step={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400}[resolution]
     end=now();start=end-duration
     with engine().connect() as db:
         asset=find_asset(db,id)

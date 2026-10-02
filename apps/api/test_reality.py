@@ -285,6 +285,10 @@ def test_chart_one_and_five_minute_resolution(setup,monkeypatch):
     bar=five['candles'][0]
     assert bar['open']==.001 and bar['close']==.002 and bar['volume_eth']==3 and bar['count']==2
     assert one['trade_count']==five['trade_count']==2 and one['trades']==five['trades']
+    for resolution,step in [('4h',14400),('1d',86400)]:
+        larger=c.get(url+resolution).json()
+        assert larger['interval']==step and larger['trade_count']==2
+        assert larger['trades']==one['trades']
     assert c.get(url+'2m').status_code==422
 
 
