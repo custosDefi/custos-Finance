@@ -7,7 +7,11 @@ export {
   TradeType,
   Rounding,
   FACTORY_ADDRESS,
+  FACTORY_ADDRESSES,
+  getFactoryAddress,
   INIT_CODE_HASH,
+  INIT_CODE_HASHES,
+  getInitCodeHash,
   MINIMUM_LIQUIDITY
 } from './constants'
 

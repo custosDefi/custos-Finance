@@ -20,8 +20,9 @@ sudo -n docker compose --env-file /opt/custos/.env \
   -f /opt/custos/deploy/compose.vm.yaml up -d --no-build --wait --wait-timeout 180
 ```
 
-The relayer deliberately reuses `deploy-relayer`: do not remove that image or
-its rollback tag. Its wallet and JSON state persist across deployments.
+The relayer uses `deploy-relayer`, now rebuildable from `apps/relayer` using
+`docker compose ... build relayer`. Retain the old image's rollback tag.
+Its wallet and JSON state persist across deployments.
 CFI deposits need `CFI_QUOTE_SIGNER_KEY` in the secret environment file matching
 the vault's immutable `quoteSigner()`, currently
 `0x33AFD96fE7E87C297c1a46dFE659B541DDF97E77`. A generated replacement key cannot

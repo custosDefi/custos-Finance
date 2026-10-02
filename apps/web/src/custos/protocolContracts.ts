@@ -1,5 +1,5 @@
 import { Contract } from '@ethersproject/contracts'
-import { Web3Provider } from '@ethersproject/providers'
+import { StaticJsonRpcProvider, Web3Provider } from '@ethersproject/providers'
 import deployments from './protocolDeployments.json'
 
 export type ProtocolDeployment = {
@@ -29,6 +29,7 @@ export type ProtocolDeployment = {
 }
 
 const deploymentMap = deployments as Record<string, ProtocolDeployment>
+const readProviderCache = new Map<number, StaticJsonRpcProvider>()
 
 export const LAUNCHPAD_ABI = [
   'function admin() view returns (address)',
@@ -101,11 +102,29 @@ export function protocolDeployment(chainId?: number): ProtocolDeployment | null 
 export function protocolContract(
   address: string | undefined,
   abi: readonly string[],
-  library: Web3Provider,
+  library: StaticJsonRpcProvider | Web3Provider | null | undefined,
   account?: string,
 ): Contract | null {
   if (!address || !library) return null
   return new Contract(address, abi, account ? library.getSigner(account) : library)
+}
+
+/**
+ * Build a provider pinned to the deployment network. This is used for public
+ * reads so the Launchpad remains usable before a wallet is connected and does
+ * not inherit a stale or wrong-network injected provider.
+ */
+export function protocolReadProvider(deployment: ProtocolDeployment | null): StaticJsonRpcProvider | null {
+  if (!deployment?.rpc) return null
+  const cached = readProviderCache.get(deployment.chainId)
+  if (cached) return cached
+
+  const provider = new StaticJsonRpcProvider(deployment.rpc, {
+    name: deployment.network,
+    chainId: deployment.chainId,
+  })
+  readProviderCache.set(deployment.chainId, provider)
+  return provider
 }
 
 export function launchFromTuple(id: number, value: any): LaunchRecord {

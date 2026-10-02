@@ -1,4 +1,4 @@
-import { Currency, ETHER, Token } from 'custoswap-sdk'
+import { Currency, ETHER, Token, WETH, V2_WETH } from 'custoswap-sdk'
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
 
@@ -6,6 +6,7 @@ import EthereumLogo from '../../assets/images/ethereum-logo.png'
 import useHttpLocations from '../../hooks/useHttpLocations'
 import { WrappedTokenInfo } from '../../state/lists/hooks'
 import Logo from '../Logo'
+import bundledTokens from '../../../public/tokenlist.json'
 
 const getTokenLogoURL = (address: string) =>
   `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${address}/logo.png`
@@ -31,7 +32,10 @@ export default function CurrencyLogo({
   size?: string
   style?: React.CSSProperties
 }) {
-  const isWrappedEther = currency instanceof Token && currency.symbol === 'WETH'
+  const isWrappedEther = currency instanceof Token && Boolean(
+    (WETH[currency.chainId] && currency.equals(WETH[currency.chainId])) ||
+    (V2_WETH[currency.chainId] && currency.equals(V2_WETH[currency.chainId]))
+  )
   const uriLocations = useHttpLocations(
     currency instanceof WrappedTokenInfo && !isWrappedEther ? currency.logoURI : undefined
   )
@@ -40,6 +44,10 @@ export default function CurrencyLogo({
     if (currency === ETHER || isWrappedEther) return []
 
     if (currency instanceof Token) {
+      const bundled = bundledTokens.tokens.find(token => token.chainId === currency.chainId && token.address.toLowerCase() === currency.address.toLowerCase())
+      if (bundled?.logoURI) return [bundled.logoURI]
+      // Testnet tokens do not have Ethereum-mainnet Trust Wallet artwork.
+      if (currency.chainId !== 1) return uriLocations
       if (currency instanceof WrappedTokenInfo) {
         return [...uriLocations, getTokenLogoURL(currency.address)]
       }

@@ -28,7 +28,7 @@ enum Fields {
 
 export default function PoolFinder() {
   const liquidityPath = useLiquidityPath()
-  const { account, chainId } = useActiveWeb3React()
+  const { account } = useActiveWeb3React()
   const { t } = useTranslation()
 
   const [showSearch, setShowSearch] = useState<boolean>(false)
@@ -138,7 +138,7 @@ export default function PoolFinder() {
           </ColumnCenter>
         )}
 
-        {currency0 && currency1 && chainId === 91342 ? <LightCard padding="24px"><Text textAlign="center">This pair is selected. Custos V2 pool contracts are not deployed on GIWA Sepolia yet.</Text></LightCard> : currency0 && currency1 ? (
+        {currency0 && currency1 ? (
           pairState === PairState.EXISTS ? (
             hasPosition && pair ? (
               <MinimalPositionCard pair={pair} border="1px solid #CED0D9" />

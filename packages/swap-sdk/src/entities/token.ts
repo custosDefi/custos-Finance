@@ -84,3 +84,16 @@ export const WETH = {
   [ChainId.REI]: new Token(ChainId.REI, '0x286B8DecD5ED79c962b2d8F4346CD97FF0E2C352', 18, 'WETH', 'Wrapped Ether'),
   [ChainId.REITEST]: new Token(ChainId.REITEST, '0x286B8DecD5ED79c962b2d8F4346CD97FF0E2C352', 18, 'WETH', 'Wrapped Ether')
 }
+
+// GIWA's legacy V2 router wraps ETH into its own WETH, not the OP predeploy.
+// Keep WETH unchanged for native bridge and chain consumers.
+export const V2_WETH = {
+  ...WETH,
+  [ChainId.GIWA_SEPOLIA]: new Token(
+    ChainId.GIWA_SEPOLIA,
+    '0xeDBc87C8c03af5eB8Ff2C97ae9708719Ed050b66',
+    18,
+    'V2-WETH',
+    'Custos V2 Wrapped Ether'
+  )
+}

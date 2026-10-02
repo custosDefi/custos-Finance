@@ -1,4 +1,4 @@
-import { Currency, currencyEquals, ETHER, WETH } from 'custoswap-sdk'
+import { Currency, currencyEquals, ETHER, V2_WETH as WETH } from 'custoswap-sdk'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { tryParseAmount } from '../state/swap/hooks'

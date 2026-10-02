@@ -11,6 +11,8 @@
     "deploy": "hardhat deploy --tags main",
     "deploy:local": "hardhat deploy --network local --tags main",
     "deploy:kovan": "hardhat deploy --network kovan --tags main",
+    "deploy:giwa": "hardhat run --network giwaSepolia scripts/deploy-giwa-uniswap.js",
+    "verify:giwa": "hardhat run --network giwaSepolia scripts/verify-giwa-interactions.js",
     "mock": "hardhat deploy --tags mock",
     "test": "hardhat test --network local",
     "test:v2": "hardhat test --network local test/current/v2.integration.js",

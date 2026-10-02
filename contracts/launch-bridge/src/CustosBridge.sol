@@ -110,7 +110,7 @@ contract CustosBridgeToken {
  * complete message. An administrator/relayer reads that event and calls
  * executeMessage on the destination bridge, where the paired asset is minted.
  * Replay protection, trusted remote bridges and pair configuration all live on
- * chain; relaying itself remains intentionally manual and observable.
+ * chain; apps/relayer automates transport while retaining a manual fallback.
  */
 contract CustosBridge {
     struct MessageData {

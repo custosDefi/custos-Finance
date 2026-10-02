@@ -1,10 +1,21 @@
-import { ChainId, JSBI, Percent, Token, WETH } from 'custoswap-sdk'
+import { ChainId, JSBI, Percent, Token, WETH, V2_WETH } from 'custoswap-sdk'
 import { AbstractConnector } from '@web3-react/abstract-connector'
 
 import { fortmatic, injected, portis, walletconnect, walletlink } from '../connectors'
 
+// Keep the original export for older consumers, but resolve the router by
+// chain for the active deployment.
 export const ROUTER_ADDRESS = '0x70E5370b8981Abc6e14C91F4AcE823954EFC8eA3'
-//0x1bEB5452E19b05A1Dbf1565B90A3ecfa458D6baA
+export const ROUTER_ADDRESSES: Partial<Record<ChainId, string>> = {
+  [ChainId.REI]: ROUTER_ADDRESS,
+  [ChainId.REITEST]: ROUTER_ADDRESS,
+  [ChainId.GIWA_SEPOLIA]: '0x4F1F5E8DE722e2773e7794af41ca0863457943C5'
+}
+
+export function getRouterAddress(chainId?: number): string {
+  return (chainId && ROUTER_ADDRESSES[chainId as ChainId]) || ROUTER_ADDRESS
+}
+
 // a list of tokens by chain
 type ChainTokenList = {
   readonly [chainId in ChainId]: Token[]
@@ -17,21 +28,37 @@ export const COMP = new Token(ChainId.MAINNET, '0xc00e94Cb662C3520282E6f57172140
 export const MKR = new Token(ChainId.MAINNET, '0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2', 18, 'MKR', 'Maker')
 export const AMPL = new Token(ChainId.MAINNET, '0xD46bA6D942050d489DBd938a2C909A5d5039A161', 9, 'AMPL', 'Ampleforth')
 
+export const GIWA_CUSTOS_A = new Token(
+  ChainId.GIWA_SEPOLIA,
+  '0x32AF40B25CB5842f91E2B790563e5F0e51A70832',
+  18,
+  'CUSTOS-A',
+  'Custos Token A'
+)
+export const GIWA_CUSTOS_B = new Token(
+  ChainId.GIWA_SEPOLIA,
+  '0x5ea3096fA9366e136605A73269B38900529dfD5A',
+  18,
+  'CUSTOS-B',
+  'Custos Token B'
+)
+
 const WETH_ONLY: ChainTokenList = {
-  [ChainId.GIWA_SEPOLIA]: [WETH[ChainId.GIWA_SEPOLIA]],
   [ChainId.MAINNET]: [WETH[ChainId.MAINNET]],
   [ChainId.ROPSTEN]: [WETH[ChainId.ROPSTEN]],
   [ChainId.RINKEBY]: [WETH[ChainId.RINKEBY]],
   [ChainId.GÖRLI]: [WETH[ChainId.GÖRLI]],
   [ChainId.KOVAN]: [WETH[ChainId.KOVAN]],
   [ChainId.REI]: [WETH[ChainId.REI]],
-  [ChainId.REITEST]: [WETH[ChainId.REITEST]]
+  [ChainId.REITEST]: [WETH[ChainId.REITEST]],
+  [ChainId.GIWA_SEPOLIA]: [WETH[ChainId.GIWA_SEPOLIA]]
 }
 
 // used to construct intermediary pairs for trading
 export const BASES_TO_CHECK_TRADES_AGAINST: ChainTokenList = {
   ...WETH_ONLY,
-  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT, COMP, MKR]
+  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT, COMP, MKR],
+  [ChainId.GIWA_SEPOLIA]: [WETH[ChainId.GIWA_SEPOLIA], V2_WETH[ChainId.GIWA_SEPOLIA], GIWA_CUSTOS_A, GIWA_CUSTOS_B]
 }
 
 /**
@@ -47,13 +74,15 @@ export const CUSTOM_BASES: { [chainId in ChainId]?: { [tokenAddress: string]: To
 // used for display in the default list when adding liquidity
 export const SUGGESTED_BASES: ChainTokenList = {
   ...WETH_ONLY,
-  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT]
+  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT],
+  [ChainId.GIWA_SEPOLIA]: [WETH[ChainId.GIWA_SEPOLIA], V2_WETH[ChainId.GIWA_SEPOLIA], GIWA_CUSTOS_A, GIWA_CUSTOS_B]
 }
 
 // used to construct the list of all pairs we consider by default in the frontend
 export const BASES_TO_TRACK_LIQUIDITY_FOR: ChainTokenList = {
   ...WETH_ONLY,
-  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT]
+  [ChainId.MAINNET]: [...WETH_ONLY[ChainId.MAINNET], DAI, USDC, USDT],
+  [ChainId.GIWA_SEPOLIA]: [WETH[ChainId.GIWA_SEPOLIA], V2_WETH[ChainId.GIWA_SEPOLIA], GIWA_CUSTOS_A, GIWA_CUSTOS_B]
 }
 
 export const PINNED_PAIRS: { readonly [chainId in ChainId]?: [Token, Token][] } = {

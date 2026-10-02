@@ -112,7 +112,7 @@ export function useDerivedSwapInfo(): {
   v2Trade: Trade | undefined
   inputError?: string
 } {
-  const { account, chainId } = useActiveWeb3React()
+  const { account } = useActiveWeb3React()
 
   const {
     independentField,
@@ -194,7 +194,7 @@ export function useDerivedSwapInfo(): {
     currencyBalances,
     parsedAmount,
     v2Trade: v2Trade ?? undefined,
-    inputError: chainId === 91342 ? "Custos V2 is not deployed on GIWA" : inputError,
+    inputError,
   }
 }
 

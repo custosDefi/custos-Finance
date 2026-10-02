@@ -2,7 +2,7 @@ import { MaxUint256 } from '@ethersproject/constants'
 import { TransactionResponse } from '@ethersproject/providers'
 import { Trade, TokenAmount, CurrencyAmount, ETHER } from 'custoswap-sdk'
 import { useCallback, useMemo } from 'react'
-import { ROUTER_ADDRESS } from '../constants'
+import { getRouterAddress } from '../constants'
 import { useTokenAllowance } from '../data/Allowances'
 import { Field } from '../state/swap/actions'
 import { useTransactionAdder, useHasPendingApproval } from '../state/transactions/hooks'
@@ -24,7 +24,7 @@ export function useApproveCallback(
   amountToApprove?: CurrencyAmount,
   spender?: string
 ): [ApprovalState, () => Promise<void>] {
-  const { account, chainId } = useActiveWeb3React()
+  const { account } = useActiveWeb3React()
   const { t } = useTranslation()
   const token = amountToApprove instanceof TokenAmount ? amountToApprove.token : undefined
   const currentAllowance = useTokenAllowance(token, account ?? undefined, spender)
@@ -49,9 +49,6 @@ export function useApproveCallback(
   const addTransaction = useTransactionAdder()
 
   const approve = useCallback(async (): Promise<void> => {
-    if (chainId === 91342 && spender?.toLowerCase() === ROUTER_ADDRESS.toLowerCase()) {
-      throw new Error('Custos V2 router is not deployed on GIWA Sepolia')
-    }
     if (approvalState !== ApprovalState.NOT_APPROVED) {
       console.error('approve was called unnecessarily')
       return
@@ -97,16 +94,17 @@ export function useApproveCallback(
         console.debug('Failed to approve token', error)
         throw error
       })
-  }, [approvalState, token, tokenContract, amountToApprove, spender, addTransaction, t, chainId])
+  }, [approvalState, token, tokenContract, amountToApprove, spender, addTransaction, t])
 
   return [approvalState, approve]
 }
 
 // wraps useApproveCallback in the context of a swap
 export function useApproveCallbackFromTrade(trade?: Trade, allowedSlippage = 0) {
+  const { chainId } = useActiveWeb3React()
   const amountToApprove = useMemo(
     () => (trade ? computeSlippageAdjustedAmounts(trade, allowedSlippage)[Field.INPUT] : undefined),
     [trade, allowedSlippage]
   )
-  return useApproveCallback(amountToApprove, ROUTER_ADDRESS)
+  return useApproveCallback(amountToApprove, getRouterAddress(chainId))
 }

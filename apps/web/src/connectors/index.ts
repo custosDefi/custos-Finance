@@ -7,11 +7,11 @@ import { PortisConnector } from '@web3-react/portis-connector'
 import { FortmaticConnector } from './Fortmatic'
 import { NetworkConnector } from './NetworkConnector'
 
-const NETWORK_URL = import.meta.env.VITE_NETWORK_URL || 'https://sepolia-rpc.giwa.io'
+const NETWORK_URL = import.meta.env.VITE_NETWORK_URL || import.meta.env.VITE_GIWA_RPC || 'https://sepolia-rpc.giwa.io'
 const FORMATIC_KEY = import.meta.env.VITE_FORTMATIC_KEY
 const PORTIS_ID = import.meta.env.VITE_PORTIS_ID
 
-export const NETWORK_CHAIN_ID: number = parseInt(import.meta.env.VITE_CHAIN_ID ?? '91342', 10)
+export const NETWORK_CHAIN_ID: number = parseInt(import.meta.env.VITE_CHAIN_ID ?? import.meta.env.VITE_GIWA_CHAIN_ID ?? '91342', 10)
 
 if (typeof NETWORK_URL === 'undefined') {
   throw new Error(`VITE_NETWORK_URL must be a defined environment variable`)
@@ -27,7 +27,7 @@ export function getNetworkLibrary(): Web3Provider {
 }
 
 export const injected = new InjectedConnector({
-  supportedChainIds: [1, 3, 4, 5, 42, 1337, 31337, 47805, 12357, 91342]
+  supportedChainIds: [1, 3, 4, 5, 42, 1337, 31337, 47805, 47806, 12357, 91342, 11155111]
 })
 
 export const walletconnect = new WalletConnectConnector({

@@ -2,6 +2,8 @@
   "name": "@custos/launch-bridge",
   "private": true,
   "scripts": {
+    "test:relayer": "npm run build && node scripts/test-relayer.cjs",
+    "smoke:public": "node scripts/smoke-test-public.cjs",
     "deploy:reality": "node scripts/deploy-reality.cjs",
     "build:reality": "node scripts/compile-reality.cjs",
     "test:reality": "node scripts/test-reality.cjs",

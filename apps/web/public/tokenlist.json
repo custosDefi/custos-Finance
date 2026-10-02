@@ -5,7 +5,7 @@
     "defi",
     "local"
   ],
-  "timestamp": "2026-10-01T05:00:00.000Z",
+  "timestamp": "2026-10-02T00:00:00.000Z",
   "tokens": [
     {
       "chainId": 47805,
@@ -13,7 +13,7 @@
       "name": "Custos Token A",
       "symbol": "CUSTOS-A",
       "decimals": 18,
-      "logoURI": "http://127.0.0.1:3001/custos-icon.png"
+      "logoURI": "/custos-icon.png"
     },
     {
       "chainId": 47805,
@@ -21,7 +21,7 @@
       "name": "Custos Token B",
       "symbol": "CUSTOS-B",
       "decimals": 18,
-      "logoURI": "http://127.0.0.1:3001/custos-icon.png"
+      "logoURI": "/custos-icon.png"
     },
     {
       "chainId": 47805,
@@ -65,11 +65,35 @@
       "name": "KELQ Synthetic WTI",
       "symbol": "rWTI",
       "decimals": 18
+    },
+    {
+      "chainId": 91342,
+      "address": "0x32AF40B25CB5842f91E2B790563e5F0e51A70832",
+      "name": "Custos Token A",
+      "symbol": "CUSTOS-A",
+      "decimals": 18,
+      "logoURI": "https://www.custosfinance.xyz/custos-icon.png"
+    },
+    {
+      "chainId": 91342,
+      "address": "0x5ea3096fA9366e136605A73269B38900529dfD5A",
+      "name": "Custos Token B",
+      "symbol": "CUSTOS-B",
+      "decimals": 18,
+      "logoURI": "https://www.custosfinance.xyz/custos-icon.png"
+    },
+    {
+      "chainId": 91342,
+      "address": "0xeDBc87C8c03af5eB8Ff2C97ae9708719Ed050b66",
+      "name": "Custos V2 Wrapped Ether",
+      "symbol": "V2-WETH",
+      "decimals": 18,
+      "logoURI": "https://raw.githubusercontent.com/Uniswap/assets/master/blockchains/ethereum/info/logo.png"
     }
   ],
   "version": {
     "major": 2,
-    "minor": 2,
+    "minor": 3,
     "patch": 0
   }
 }

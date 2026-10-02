@@ -46,6 +46,8 @@ const CHAIN_IDS = {
 
 const KOVAN_RPC_URL = process.env.KOVAN_RPC_URL || ''
 const KOVAN_PRIVATE_KEY = process.env.KOVAN_PRIVATE_KEY || process.env.PRIVATE_KEY || ''
+const GIWA_RPC_URL = process.env.GIWA_RPC_URL || 'https://sepolia-rpc.giwa.io'
+const GIWA_PRIVATE_KEY = process.env.GIWA_PRIVATE_KEY || process.env.PRIVATE_KEY || ''
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || ''
 
 module.exports = {
@@ -67,6 +69,12 @@ module.exports = {
       kovan: {
          url: KOVAN_RPC_URL || 'http://127.0.0.1:7545',
          accounts: KOVAN_PRIVATE_KEY ? [KOVAN_PRIVATE_KEY] : [],
+         saveDeployments: true
+       },
+      giwaSepolia: {
+         url: GIWA_RPC_URL,
+         chainId: 91342,
+         accounts: GIWA_PRIVATE_KEY ? [GIWA_PRIVATE_KEY] : [],
          saveDeployments: true
        }
    },

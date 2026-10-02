@@ -168,7 +168,7 @@ export function useDerivedMintInfo(
     noLiquidity,
     liquidityMinted,
     poolTokenPercentage,
-    error: chainId === 91342 ? "Custos V2 is not deployed on GIWA" : error
+    error
   }
 }
 

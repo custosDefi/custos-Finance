@@ -2,7 +2,7 @@ import { ChainId } from '../constants'
 import invariant from 'tiny-invariant'
 
 import { Currency, ETHER } from './currency'
-import { Token, WETH } from './token'
+import { Token, V2_WETH as WETH } from './token'
 import { Pair } from './pair'
 import { Price } from './fractions/price'
 

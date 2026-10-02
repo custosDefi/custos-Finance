@@ -1,4 +1,4 @@
-import { ChainId, Currency, CurrencyAmount, ETHER, Token, TokenAmount, WETH } from 'custoswap-sdk'
+import { ChainId, Currency, CurrencyAmount, ETHER, Token, TokenAmount, V2_WETH as WETH } from 'custoswap-sdk'
 
 export function wrappedCurrency(currency: Currency | undefined, chainId: ChainId | undefined): Token | undefined {
   return chainId && currency === ETHER ? WETH[chainId] : currency instanceof Token ? currency : undefined

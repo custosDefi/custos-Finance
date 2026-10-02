@@ -9,6 +9,7 @@ import {
   FileCheck2,
   Loader2,
   Plus,
+  RefreshCw,
   Rocket,
   ShieldCheck,
   Sparkles,
@@ -22,7 +23,9 @@ import {
   launchFromTuple,
   protocolContract,
   protocolDeployment,
+  protocolReadProvider,
 } from './protocolContracts'
+import { MARKET_NETWORK } from './marketNetwork'
 
 type Props = {
   wallet: string
@@ -33,6 +36,7 @@ type Props = {
 type LaunchMode = 'open' | 'curated'
 
 const EXPLORER_BASE = import.meta.env.VITE_GIWA_EXPLORER || 'https://sepolia-explorer.giwa.io'
+const READ_CHAIN_ID = Number(import.meta.env.VITE_GIWA_CHAIN_ID || MARKET_NETWORK.chainId || 91342)
 
 function shortAddress(value: string) {
   return value ? `${value.slice(0, 6)}…${value.slice(-4)}` : '—'
@@ -55,17 +59,38 @@ function launchState(launch: LaunchRecord, now: number) {
   return { label: 'LIVE', tone: 'live' }
 }
 
+function readableError(error: any) {
+  return (
+    error?.reason ||
+    error?.error?.message ||
+    error?.data?.message ||
+    error?.message ||
+    'The GIWA Sepolia RPC did not return a valid Launchpad response.'
+  )
+}
+
 export default function CustosLaunchpadPage({ wallet, onConnect, setToast }: Props) {
   const { account, chainId, library } = useActiveWeb3React()
   const activeWallet = wallet || account || ''
-  const deployment = protocolDeployment(Number(chainId || 0))
+  const preferredReadChainId = Number(chainId || 0) === 47805 ? 47805 : READ_CHAIN_ID
+  const deployment = protocolDeployment(preferredReadChainId) || protocolDeployment(READ_CHAIN_ID)
+  const walletDeployment = protocolDeployment(Number(chainId || 0))
+  const readProvider = useMemo(() => protocolReadProvider(deployment), [deployment?.chainId, deployment?.rpc])
+  const readLaunchpad = useMemo(
+    () => protocolContract(deployment?.contracts.launchpad, LAUNCHPAD_ABI, readProvider),
+    [deployment?.contracts.launchpad, readProvider],
+  )
   const launchpad = useMemo(
-    () => protocolContract(deployment?.contracts.launchpad, LAUNCHPAD_ABI, library as any, activeWallet),
-    [activeWallet, deployment?.contracts.launchpad, library],
+    () =>
+      walletDeployment && walletDeployment.chainId === deployment?.chainId
+        ? protocolContract(walletDeployment.contracts.launchpad, LAUNCHPAD_ABI, library, activeWallet)
+        : null,
+    [activeWallet, deployment?.chainId, library, walletDeployment?.chainId, walletDeployment?.contracts.launchpad],
   )
   const [mode, setMode] = useState<LaunchMode>('open')
   const [launches, setLaunches] = useState<LaunchRecord[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [now, setNow] = useState(Math.floor(Date.now() / 1000))
@@ -82,27 +107,29 @@ export default function CustosLaunchpadPage({ wallet, onConnect, setToast }: Pro
   })
 
   const refresh = useCallback(async () => {
-    if (!launchpad) {
+    if (!readLaunchpad) {
       setLaunches([])
+      setLoadError('Launchpad is not configured for GIWA Sepolia.')
       return
     }
     setLoading(true)
+    setLoadError('')
     try {
-      const count = Math.min((await launchpad.launchCount()).toNumber(), 50)
+      const count = Math.min((await readLaunchpad.launchCount()).toNumber(), 50)
       const values = await Promise.all(
         Array.from({ length: count }, (_, index) => {
           const id = index + 1
-          return launchpad.getLaunch(id).then((value: any) => launchFromTuple(id, value))
+          return readLaunchpad.getLaunch(id).then((value: any) => launchFromTuple(id, value))
         }),
       )
       setLaunches(values.reverse())
     } catch (error) {
       console.warn('[Custos launchpad]', error)
-      setLaunches([])
+      setLoadError(readableError(error))
     } finally {
       setLoading(false)
     }
-  }, [launchpad])
+  }, [readLaunchpad])
 
   useEffect(() => {
     void refresh()
@@ -289,6 +316,15 @@ export default function CustosLaunchpadPage({ wallet, onConnect, setToast }: Pro
           <FileCheck2 size={23} />
           <h3>Launchpad contracts are not on this chain yet.</h3>
           <p>Start the local dual-chain deployment or switch your wallet to a configured protocol network.</p>
+        </section>
+      ) : loadError ? (
+        <section className="defi-card protocol-empty-state">
+          <FileCheck2 size={23} />
+          <h3>Could not read Launchpad projects.</h3>
+          <p>{loadError}</p>
+          <button type="button" className="defi-secondary-button" onClick={() => void refresh()} disabled={loading}>
+            <RefreshCw size={15} className={loading ? 'protocol-spin' : undefined} /> Retry reading GIWA Sepolia
+          </button>
         </section>
       ) : loading && launches.length === 0 ? (
         <section className="defi-card protocol-empty-state"><Loader2 className="protocol-spin" size={23} /><p>Reading launches from the chain…</p></section>

@@ -20,13 +20,15 @@ RUN cd apps/web && yarn install --frozen-lockfile --ignore-scripts
 COPY apps/web ./apps/web
 
 ARG VITE_API_BASE
-ARG VITE_CHAIN_ID=1
-ARG VITE_NETWORK_URL=https://cloudflare-eth.com
+ARG VITE_RELAYER_API_BASE=/relayer
+ARG VITE_CHAIN_ID=91342
+ARG VITE_NETWORK_URL=https://sepolia-rpc.giwa.io
 ARG VITE_GIWA_RPC=https://sepolia-rpc.giwa.io
 ARG VITE_GIWA_EXPLORER=https://sepolia-explorer.giwa.io
 ARG VITE_GIWA_CHAIN_ID=91342
 
 ENV VITE_API_BASE=${VITE_API_BASE} \
+    VITE_RELAYER_API_BASE=${VITE_RELAYER_API_BASE} \
     VITE_CHAIN_ID=${VITE_CHAIN_ID} \
     VITE_NETWORK_URL=${VITE_NETWORK_URL} \
     VITE_GIWA_RPC=${VITE_GIWA_RPC} \

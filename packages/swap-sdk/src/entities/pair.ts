@@ -7,8 +7,8 @@ import { getCreate2Address } from '@ethersproject/address'
 
 import {
   BigintIsh,
-  FACTORY_ADDRESS,
-  INIT_CODE_HASH,
+  getFactoryAddress,
+  getInitCodeHash,
   MINIMUM_LIQUIDITY,
   ZERO,
   ONE,
@@ -21,7 +21,9 @@ import { sqrt, parseBigintIsh } from '../utils'
 import { InsufficientReservesError, InsufficientInputAmountError } from '../errors'
 import { Token } from './token'
 
-let PAIR_ADDRESS_CACHE: { [token0Address: string]: { [token1Address: string]: string } } = {}
+let PAIR_ADDRESS_CACHE: {
+  [chainId: number]: { [token0Address: string]: { [token1Address: string]: string } }
+} = {}
 
 export class Pair {
   public readonly liquidityToken: Token
@@ -29,22 +31,26 @@ export class Pair {
 
   public static getAddress(tokenA: Token, tokenB: Token): string {
     const tokens = tokenA.sortsBefore(tokenB) ? [tokenA, tokenB] : [tokenB, tokenA] // does safety checks
+    const chainId = tokens[0].chainId
 
-    if (PAIR_ADDRESS_CACHE?.[tokens[0].address]?.[tokens[1].address] === undefined) {
+    if (PAIR_ADDRESS_CACHE?.[chainId]?.[tokens[0].address]?.[tokens[1].address] === undefined) {
       PAIR_ADDRESS_CACHE = {
         ...PAIR_ADDRESS_CACHE,
-        [tokens[0].address]: {
-          ...PAIR_ADDRESS_CACHE?.[tokens[0].address],
-          [tokens[1].address]: getCreate2Address(
-            FACTORY_ADDRESS,
-            keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
-            INIT_CODE_HASH
-          )
+        [chainId]: {
+          ...PAIR_ADDRESS_CACHE?.[chainId],
+          [tokens[0].address]: {
+            ...PAIR_ADDRESS_CACHE?.[chainId]?.[tokens[0].address],
+            [tokens[1].address]: getCreate2Address(
+              getFactoryAddress(chainId),
+              keccak256(['bytes'], [pack(['address', 'address'], [tokens[0].address, tokens[1].address])]),
+              getInitCodeHash(chainId)
+            )
+          }
         }
       }
     }
 
-    return PAIR_ADDRESS_CACHE[tokens[0].address][tokens[1].address]
+    return PAIR_ADDRESS_CACHE[chainId][tokens[0].address][tokens[1].address]
   }
 
   public constructor(tokenAmountA: TokenAmount, tokenAmountB: TokenAmount) {
