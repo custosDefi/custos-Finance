@@ -1,8 +1,9 @@
 """GIWA RWA Exchange demo API.
 
-This service stores asset metadata, market configuration and demo analytics. It does not
-custody funds, mint tokens, execute swaps or decide legal eligibility. Contract actions
-are executed by the connected wallet in the React application.
+This service stores asset metadata, market configuration and demo analytics. Swaps and
+user protocol actions are executed by connected wallets. The optional testnet faucet
+is the explicit exception: a dedicated official signer sponsors native test ETH claims.
+It is disabled unless configured and does not handle mainnet funds or legal eligibility.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from perp_market import router as perp_router, start_perp_stream, stop_perp_stre
 from real_market import router as real_market_router
 from public_beta import router as public_beta_router
 from reality import router as reality_router, start_reality_index, stop_reality_index, close_rpc
+from faucet import router as faucet_router, start_faucet, stop_faucet
 
 DB_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "rwa_exchange.db")
 MARKET_CONFIG_PATH = BASE_DIR / "market-config.json"
@@ -86,6 +88,7 @@ app.include_router(perp_router)
 app.include_router(real_market_router)
 app.include_router(public_beta_router)
 app.include_router(reality_router)
+app.include_router(faucet_router)
 
 
 # ---------------------------------------------------------------------------
@@ -557,11 +560,13 @@ def market_row(conn: sqlite3.Connection, pool_id: int) -> sqlite3.Row:
 async def startup() -> None:
     init_db()
     await start_perp_stream()
+    await start_faucet()
     await start_reality_index()
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
+    await stop_faucet()
     await stop_reality_index()
     await close_rpc()
     await stop_perp_stream()

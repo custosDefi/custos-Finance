@@ -57,6 +57,7 @@ type WorkspaceTab =
   | 'perpetuals'
   | 'launchpad'
   | 'bridge'
+  | 'faucet'
 
 type Quote = {
   price?: number
@@ -88,6 +89,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'perpetuals', label: 'Perpetuals', description: 'Leveraged testnet markets', icon: TrendingUp },
   { id: 'launchpad', label: 'Launchpad', description: 'Launch tokens onchain', icon: Rocket },
   { id: 'bridge', label: 'Bridge', description: 'Relay messages cross-chain', icon: Network },
+  { id: 'faucet', label: 'Faucet', description: 'Gas-sponsored test ETH', icon: Droplets },
   { id: 'portfolio', label: 'Portfolio', description: 'Wallet, positions and activity', icon: Wallet },
   { id: 'season', label: 'Season 1', description: 'Verified participation', icon: Trophy },
   { id: 'transparency', label: 'Transparency', description: 'Contracts and proof data', icon: ShieldCheck },
@@ -331,6 +333,7 @@ function WorkspaceContent({
   }
   if (tab === 'portfolio') return <SpotPortfolioPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
   if (tab === 'season') return <PublicBetaPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />
+  if (tab === 'faucet') return <Redirect to="/reality/faucet" />
   if (tab === 'transparency') return <SpotTransparencyPage />
   if (tab === 'rwa') return <RwaExchangeConsole />
   if (tab === 'launchpad') return <CustosLaunchpadPage wallet={account || ''} onConnect={onConnect} setToast={setToast} />

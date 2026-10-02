@@ -16,7 +16,11 @@
     "deploy:cfi": "node scripts/deploy-cfi.cjs",
     "build:cfi:binance": "node scripts/compile-cfi-binance.cjs",
     "test:cfi:binance": "node scripts/test-cfi-binance.cjs",
-    "deploy:cfi:binance": "node scripts/deploy-cfi-binance.cjs"
+    "deploy:cfi:binance": "node scripts/deploy-cfi-binance.cjs",
+    "build:faucet": "node scripts/faucet-artifact.cjs",
+    "test:faucet": "node scripts/test-faucet.cjs",
+    "deploy:faucet": "node scripts/deploy-faucet.cjs",
+    "test:faucet:service": "node scripts/test-faucet-service.cjs"
   },
   "devDependencies": {
     "ethers": "5.8.0",

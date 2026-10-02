@@ -20,6 +20,7 @@ export default function App() {
         <Switch>
           <Route exact path={['/', '/index.html', '/legacy-home']} component={CustosLandingPage} />
           <Route path="/reality" component={RealityApp} />
+          <Route exact path="/defi/faucet" component={RealityApp} />
           <Route exact path="/defi/launchpad" component={RealityApp} />
           <Route
             path={['/defi', '/swap', '/send', '/pool', '/find', '/create', '/add', '/remove', '/perp']}
