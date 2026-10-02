@@ -16,6 +16,10 @@ services:
       REALITY_PLATFORM_TOKEN: ${REALITY_PLATFORM_TOKEN:-}
       REALITY_SWAP_ROUTER: ${REALITY_SWAP_ROUTER:-}
       REALITY_SWAP_FACTORY: ${REALITY_SWAP_FACTORY:-}
+      REALITY_CFI_STAKING: ${REALITY_CFI_STAKING:-}
+      REALITY_CFI_START_BLOCK: ${REALITY_CFI_START_BLOCK:-0}
+      REALITY_CFI_PRICE_SOURCE: ${REALITY_CFI_PRICE_SOURCE:-binance}
+      CFI_QUOTE_SIGNER_KEY: ${CFI_QUOTE_SIGNER_KEY:-}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
       GIWA_RPC_URL: ${GIWA_RPC_URL:-https://sepolia-rpc.giwa.io}
       GIWA_FLASHBLOCKS_RPC_URL: ${GIWA_FLASHBLOCKS_RPC_URL:-https://sepolia-rpc-flashblocks.giwa.io}
@@ -35,13 +39,37 @@ services:
       timeout: 5s
       retries: 10
 
+  # Preserve the separately deployed trusted-message relayer image.
+  relayer:
+    image: ${RELAYER_IMAGE:-deploy-relayer}
+    container_name: custos-bridge-relayer
+    restart: unless-stopped
+    environment:
+      RELAYER_PRIVATE_KEY: ${RELAYER_PRIVATE_KEY:?Relayer key must be configured}
+      RELAYER_DEPLOYMENT_FILE: /app/contracts/launch-bridge/deployments/GIWA Sepolia--Ethereum Sepolia.json
+      RELAYER_STATE_FILE: /data/bridge-relayer-state.json
+      RELAYER_POLL_INTERVAL_MS: ${RELAYER_POLL_INTERVAL_MS:-5000}
+      RELAYER_CONFIRMATIONS: ${RELAYER_CONFIRMATIONS:-1}
+      RELAYER_RECEIPT_CONFIRMATIONS: ${RELAYER_RECEIPT_CONFIRMATIONS:-1}
+      RELAYER_HTTP_HOST: 0.0.0.0
+      RELAYER_HTTP_PORT: "8090"
+    volumes:
+      - ../runtime-data:/data
+    expose:
+      - "8090"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8090/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   web:
     build:
       context: ..
       dockerfile: deploy/frontend.Dockerfile
       args:
         NGINX_CONFIG: deploy/nginx.vm.conf
-        VITE_API_BASE: ${VITE_API_BASE}
+        VITE_API_BASE: ${VITE_API_BASE:-}
         VITE_CHAIN_ID: ${VITE_CHAIN_ID:-91342}
         VITE_NETWORK_URL: ${VITE_NETWORK_URL:-https://sepolia-rpc.giwa.io}
         VITE_GIWA_RPC: ${VITE_GIWA_RPC:-https://sepolia-rpc.giwa.io}
@@ -51,6 +79,8 @@ services:
     restart: unless-stopped
     depends_on:
       api:
+        condition: service_healthy
+      relayer:
         condition: service_healthy
     volumes:
       - /var/www/certbot:/var/www/certbot:ro

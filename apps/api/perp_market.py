@@ -446,8 +446,6 @@ class MarketStreamHub:
                     compression=None,
                 ) as websocket:
                     self.node_status[url]["connected"] = True
-                    self.node_status[url]["error"] = ""
-                    backoff = 1.0
 
                     await websocket.send(
                         json.dumps(
@@ -486,10 +484,18 @@ class MarketStreamHub:
                         except json.JSONDecodeError:
                             continue
 
+                        if message.get("type") == "subscriptionError":
+                            raise RuntimeError(
+                                "Pyth subscription rejected: "
+                                + str(message.get("error") or "Unknown subscription error")[:1024]
+                            )
+
                         if message.get("type") != "streamUpdated":
                             continue
 
                         await self._ingest(message, url)
+                        self.node_status[url]["error"] = ""
+                        backoff = 1.0
 
             except asyncio.CancelledError:
                 raise

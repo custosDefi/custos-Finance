@@ -17,12 +17,17 @@ const explorer = local
   ? (import.meta.env.VITE_LOCAL_EXPLORER || '')
   : (import.meta.env.VITE_GIWA_EXPLORER || 'https://sepolia-explorer.giwa.io');
 
-export const CUSTOS_API_BASE =
-  import.meta.env.VITE_API_BASE ||
-  (typeof window !== 'undefined' &&
-  /^(https?:\/\/)?(localhost|127\.0\.0\.1)/.test(window.location.origin)
+export function resolveMarketApiBase(override: string | undefined, origin: string) {
+  if (override) return override;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
     ? 'http://127.0.0.1:8001'
-    : 'https://giwa-rwa-exchange.onrender.com');
+    : origin || 'https://www.custosfinance.xyz';
+}
+
+export const CUSTOS_API_BASE = resolveMarketApiBase(
+  import.meta.env.VITE_API_BASE,
+  typeof window !== 'undefined' ? window.location.origin : '',
+);
 
 export const MARKET_NETWORK = {
   chainId,

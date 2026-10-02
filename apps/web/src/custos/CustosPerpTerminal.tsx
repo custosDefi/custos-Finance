@@ -1202,11 +1202,11 @@ function PerpTerminalApp({
               CUSTOS
             </a>
           )}
-          <span className={stream.connected ? 'pulse live' : 'pulse'} />
+          <span className={stream.connected && stream.live ? 'pulse live' : 'pulse'} />
           <strong>PERPETUAL MARKETS</strong>
           <span>
             {stream.connected
-              ? 'PYTH STREAM LIVE'
+              ? stream.live ? 'PYTH STREAM LIVE' : stream.providerError ? 'PYTH STREAM UNAVAILABLE' : 'WAITING FOR LIVE PRICES'
               : 'STREAM CONNECTING'}
           </span>
         </div>
@@ -1311,7 +1311,7 @@ function PerpTerminalApp({
               <span className="timeframeSource">
                 {historyLoading
                   ? 'LOADING HISTORY…'
-                  : `${chartHistorySource} HISTORY + LIVE`}
+                  : `${chartHistorySource} HISTORY${market?.quote?.fresh ? ' + LIVE' : ' · LIVE DATA UNAVAILABLE'}`}
               </span>
               <div className="colorModeToggle">
                 <button
@@ -1988,7 +1988,9 @@ function CandlestickChart({
         <div className="exchangeChartStatus">
           <Radio size={11} />
           {timeframe.toUpperCase()} ·{' '}
-          {liveSource === 'nasdaq-chart'
+          {liveSource === 'testnet-fallback' || liveSource === 'local-mock'
+            ? 'TESTNET FALLBACK'
+            : liveSource === 'nasdaq-chart'
             ? liveFresh ? 'NASDAQ LIVE' : 'NASDAQ DELAYED'
             : liveFresh ? 'PYTH LIVE' : 'PYTH DELAYED'}
           {livePrice != null && <strong>${fmt(livePrice)}</strong>}
@@ -2006,7 +2008,7 @@ function CandlestickChart({
       {(error || chartRuntimeError) && candles.length === 0 && (
         <div className="exchangeChartOverlay exchangeChartError">
           {chartRuntimeError ||
-            'History request failed — live price is still available.'}
+            'History request failed. The displayed quote may be delayed or a testnet fallback.'}
         </div>
       )}
     </div>
