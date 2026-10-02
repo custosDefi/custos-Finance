@@ -5,7 +5,6 @@ import {
   Copy,
   Share2,
   ShieldCheck,
-  Trophy,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -160,89 +159,36 @@ export default function PublicBetaPage({
   }
 
   return (
-    <div className="fade-up space-y-5">
-      <section className="relative overflow-hidden rounded-[28px] border border-emerald-300/15 bg-[radial-gradient(circle_at_78%_25%,rgba(121,255,167,.15),transparent_24%),linear-gradient(135deg,#071923,#06110d)] p-6 md:p-9">
-        <div className="relative z-10 grid gap-8 xl:grid-cols-[1fr_420px] xl:items-end">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.07] px-3 py-1.5 text-[10px] font-semibold tracking-[.16em] text-emerald-200">
-                CUSTOS FINANCE · PUBLIC BETA · SEASON 1
-              </span>
-              <span className={`rounded-full border px-3 py-1.5 text-[10px] ${verificationReady ? 'border-emerald-300/20 text-emerald-200' : 'border-amber-300/20 text-amber-200'}`}>
-                {verificationReady ? 'ONCHAIN VERIFICATION READY' : 'WAITING FOR LAUNCHPAD DEPLOYMENT'}
-              </span>
-            </div>
-            <h1 className="mt-5 max-w-[850px] text-[clamp(42px,5vw,70px)] font-semibold leading-[.96] tracking-[-.07em]">
-              Create something real. Grow with Custos.
-            </h1>
-            <p className="mt-5 max-w-3xl text-[14px] leading-relaxed text-white/55">
-              Follow Custos on X, launch your first token on GIWA and invite friends. Opening our X profile earns 10 points; launches and referrals are verified onchain.
-            </p>
-            {refCode && (
-              <p className="mt-4 text-[11px] text-emerald-200/75">
-                Referral captured: <span className="font-mono">{refCode}</span>. Referrals bind on joining Season 1 and count after the friend’s first token launch.
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <p className="col-span-2 text-[10px] font-semibold tracking-[.12em] text-emerald-300">REALITY TASK ACTIVITY</p>
-            <Metric icon={<Users size={16} />} label="Participants" value={number(stats.participants)} />
-            <Metric icon={<Activity size={16} />} label="Tokens launched" value={number(stats.verifiedTransactions)} />
-            <Metric icon={<Trophy size={16} />} label="Points issued" value={number(stats.pointsIssued)} />
-            <Metric icon={<Share2 size={16} />} label="Referrals" value={number(stats.qualifiedReferrals)} />
-          </div>
+    <div className="fade-up space-y-5 rl-season-content">
+      <section className="rl-season-intro">
+        <div><p className="rl-eyebrow">CUSTOS FINANCE · SEASON 1</p><h1>Season 1</h1><p>Bring something real. Earn points. Rise together.</p></div>
+        <div className="rl-season-activity" aria-label="Season activity"><span><b>{number(stats.participants)}</b> Participants</span><span><b>{number(stats.verifiedTransactions)}</b> Tokens launched</span><span><b>{number(stats.pointsIssued)}</b> Points issued</span><span><b>{number(stats.qualifiedReferrals)}</b> Referrals</span></div>
+        <p className="rl-footnote">{verificationReady?'Onchain verification ready':'Waiting for launchpad deployment'}{refCode?<span> · Referral captured: <code>{refCode}</code></span>:null}</p>
+      </section>
+      <section className="giwa-panel rl-season-profile" aria-label="Your Season 1 profile">
+        <div className="rl-season-wallet"><Wallet size={22}/><div><span>Connected wallet</span><strong title={wallet}>{wallet?short(wallet):'Connect to see your profile'}</strong></div></div>
+        <div className="rl-season-profile-stats"><ProfileStat label="Points" value={number(profile?.points||0)}/><ProfileStat label="Rank" value={profile?.qualified?`#${profile.rank}`:'—'}/><ProfileStat label="Tokens launched" value={number(profile?.verifiedTransactions||0)}/><ProfileStat label="Referrals" value={number(profile?.qualifiedReferrals||0)}/></div>
+        {wallet?<button type="button" className="secondary-button rl-season-invite" disabled={busy} onClick={()=>void copyInvite()} title="Copy unique invite link"><Copy size={15}/><span>Copy invite link</span></button>:<button className="primary-button rl-season-connect" onClick={()=>void onConnect()}><span>Connect Wallet</span></button>}
+      </section>
+      <section className="rl-season-tasks grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Season tasks">
+        <div className="giwa-panel rounded-[22px] p-5">
+          <div className="flex justify-between text-emerald-200"><Users size={17}/><span>+10 · once</span></div>
+          <h3 className="mt-5 text-[19px] font-semibold">Follow Custos on X</h3>
+          <p className="mt-2 text-[11px] text-white/42">Open our X profile to earn 10 points, once per wallet.</p>
+          <a href={xUrl} target="_blank" rel="noopener noreferrer" onClick={()=>{if(!busy)void visitX()}} className="primary-button mt-5 flex w-full items-center justify-center rounded-lg py-3">{profile?.xStatus==='visited'?'Completed · Open X again ↗':busy?'Recording points…':'Follow Custos on X · +10 ↗'}</a>
+          <p className="mt-4 text-[11px] text-white/42">{profile?.xStatus==='visited'?'10 points earned':wallet?'Follow our official X account':'Connect your wallet to record task points'}</p>
+        </div>
+        <Quest icon={<ShieldCheck size={17}/>} title="Stake ETH" points="+100 · once" href="#/reality/stake" text="Stake GIWA ETH for CFI. First confirmed stake: 100 points." status={profile?.stakeCompleted?'Completed · 100 points earned':'Stake ETH to complete'}/>
+        <Quest icon={<Activity size={17}/>} title="Launch a token" points="+100 · once" href="#/reality/create" text="Issue a real project token on GIWA. Points follow onchain confirmation." status={profile?.verifiedTransactions?'Completed':'Complete after onchain verification'}/>
+        <div className="giwa-panel rounded-[22px] p-5">
+          <div className="flex justify-between text-emerald-200"><Share2 size={17}/><span>+100 / qualified friend</span></div>
+          <h3 className="mt-5 text-[19px] font-semibold">Invite friends</h3>
+          <p className="mt-2 text-[11px] text-white/42">Earn points when a friend joins through your link and launches their first token.</p>
+          <button className="primary-button mt-5 w-full rounded-lg py-3" disabled={busy} onClick={()=>void copyInvite()}>Sign and copy invite link</button>
+          <p className="mt-4 text-[11px] text-emerald-200">Completed {profile?.qualifiedReferrals||0} qualified referrals</p>
         </div>
       </section>
-
-      <section className="grid gap-4 xl:grid-cols-[420px_1fr]">
-        <div className="giwa-panel rounded-[24px] p-5 md:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-semibold tracking-[.15em] text-emerald-300">YOUR SEASON</p>
-              <h2 className="mt-2 text-[28px] font-semibold tracking-[-.05em]">Reality task profile</h2>
-            </div>
-            <Trophy size={22} className="text-emerald-300" />
-          </div>
-
-          {!wallet ? (
-            <div className="mt-6 rounded-2xl border border-white/[.08] bg-black/15 p-5">
-              <p className="text-[13px] text-white/55">Connect your wallet to see points, rank and your referral link.</p>
-              <button onClick={() => void onConnect()} className="primary-button mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-semibold">
-                <Wallet size={15} /> Connect Wallet
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <ProfileStat label="Points" value={number(profile?.points || 0)} />
-                <ProfileStat label="Rank" value={profile?.qualified ? `#${profile.rank}` : '—'} />
-                <ProfileStat label="Tokens launched" value={number(profile?.verifiedTransactions || 0)} />
-                <ProfileStat label="Referrals" value={number(profile?.qualifiedReferrals || 0)} />
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-white/[.08] bg-black/15 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[9px] font-semibold tracking-[.13em] text-white/36">YOUR UNIQUE INVITE CODE</p>
-                  <span className="rounded-full border border-emerald-300/20 bg-emerald-300/[.07] px-2.5 py-1 text-[9px] font-semibold text-emerald-200">
-                    +100 / INVITE
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate text-[13px] text-emerald-200">{profile?.referralCode || 'Sign in to generate an invite link'}</code>
-                  <button type="button" onClick={copyInvite} disabled={busy} className="secondary-button grid size-9 place-items-center rounded-lg disabled:opacity-40" title="Copy unique invite link">
-                    <Copy size={14} />
-                  </button>
-                </div>
-                <p className="mt-3 text-[10px] leading-relaxed text-white/34">
-                  Every wallet has a unique invite code. Earn 100 points when a referred friend joins Season 1 and launches their first token. Each friend counts once.
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="giwa-panel rounded-[24px] p-5 md:p-6">
+        <section className="giwa-panel rl-season-leaderboard rounded-[24px] p-5 md:p-6" aria-label="Season 1 leaderboard">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-semibold tracking-[.15em] text-emerald-300">LEADERBOARD</p>
@@ -273,37 +219,12 @@ export default function PublicBetaPage({
               <div className="px-5 py-10 text-center text-[12px] text-white/35">{board==='original'?(boardLoading?'Loading original Season 1…':originalError?'Leaderboard unavailable. Please retry.':'No recorded participants in the original Season 1.'):'No qualifying participants yet. Complete a task to join the leaderboard.'}</div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="giwa-panel rounded-[22px] p-5">
-          <div className="flex justify-between text-emerald-200"><Users size={17}/><span>+10 · once</span></div>
-          <h3 className="mt-5 text-[19px] font-semibold">Follow Custos on X</h3>
-          <p className="mt-2 text-[11px] text-white/42">Follow our official X account. Open the profile to earn 10 points. Once per wallet.</p>
-          <a href={xUrl} target="_blank" rel="noopener noreferrer" onClick={()=>{if(!busy)void visitX()}} className="primary-button mt-5 flex w-full items-center justify-center rounded-lg py-3">{profile?.xStatus==='visited'?'Completed · Open X again ↗':busy?'Recording points…':'Follow Custos on X · +10 ↗'}</a>
-          <p className="mt-4 text-[11px] text-white/42">{profile?.xStatus==='visited'?'10 points earned':wallet?'Follow our official X account':'Connect your wallet to record task points'}</p>
-        </div>
-        <Quest icon={<ShieldCheck size={17}/>} title="Stake ETH" points="+100 · once" href="#/reality/stake" text="Deposit native GIWA ETH to receive CFI. Your first confirmed stake earns 100 points." status={profile?.stakeCompleted?'Completed · 100 points earned':'Stake ETH to complete'}/>
-        <Quest icon={<Activity size={17}/>} title="Launch a token" points="+100 · once" href="#/reality/create" text="Create a project and issue its token on GIWA. Points are awarded after the transaction is verified." status={profile?.verifiedTransactions?'Completed':'Complete after onchain verification'}/>
-        <div className="giwa-panel rounded-[22px] p-5">
-          <div className="flex justify-between text-emerald-200"><Share2 size={17}/><span>+100 / qualified friend</span></div>
-          <h3 className="mt-5 text-[19px] font-semibold">Invite friends</h3>
-          <p className="mt-2 text-[11px] text-white/42">Friends must sign in through your link and launch their first token. Self-referrals and duplicates do not count.</p>
-          <button className="primary-button mt-5 w-full rounded-lg py-3" disabled={busy} onClick={()=>void copyInvite()}>Sign and copy invite link</button>
-          <p className="mt-4 text-[11px] text-emerald-200">Completed {profile?.qualifiedReferrals||0} qualified referrals</p>
-        </div>
-      </section>
-
+        </section>
       <section className="rounded-2xl border border-amber-200/10 bg-amber-200/[.025] px-5 py-4 text-[10px] leading-relaxed text-white/42">
         <strong className="text-white/72">Season disclosure:</strong> points are testnet participation metrics only. They do not guarantee a token, airdrop, reward, allocation, financial value or future eligibility. Custos Finance synthetic assets and tUSDC are testnet-only.
       </section>
     </div>
   );
-}
-
-function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return <div className="rounded-2xl border border-white/[.09] bg-black/20 p-4"><div className="flex items-center gap-2 text-emerald-300">{icon}<span className="text-[9px] tracking-[.1em] text-white/36">{label}</span></div><p className="mt-3 text-[25px] font-semibold tracking-[-.05em]">{value}</p></div>;
 }
 
 function ProfileStat({ label, value }: { label: string; value: string }) {
