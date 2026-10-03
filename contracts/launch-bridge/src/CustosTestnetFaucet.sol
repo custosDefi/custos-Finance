@@ -8,7 +8,7 @@ contract CustosTestnetFaucet {
     address public operator;
     uint256 public immutable claimAmount;
     uint256 public immutable claimCooldown;
-    uint256 public immutable dailyLimit;
+    uint256 public dailyLimit;
     mapping(uint256 => uint256) public distributedPerDay;
     mapping(address => uint256) public nextClaimAt;
     bool public paused;
@@ -19,6 +19,7 @@ contract CustosTestnetFaucet {
     event PauseChanged(bool paused);
     event FundsRecovered(address indexed recipient, uint256 amount);
     event OperatorChanged(address indexed operator);
+    event DailyLimitChanged(uint256 previousLimit, uint256 newLimit);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "OWNER_ONLY");
@@ -37,7 +38,7 @@ contract CustosTestnetFaucet {
         require(administrator != address(0) && sender != address(0), "ZERO_OWNER");
         require(amount > 0 && amount <= 0.01 ether, "CLAIM_AMOUNT");
         require(cooldown >= 1 hours && cooldown <= 7 days, "CLAIM_COOLDOWN");
-        require(limit >= amount && limit <= 1 ether, "DAILY_LIMIT");
+        require(limit >= amount, "DAILY_LIMIT");
         owner = administrator;
         operator = sender;
         claimAmount = amount;
@@ -75,6 +76,15 @@ contract CustosTestnetFaucet {
     function setPaused(bool value) external onlyOwner {
         paused = value;
         emit PauseChanged(value);
+    }
+
+    /// @notice Updating a budget never resets the amount already paid today.
+    function setDailyLimit(uint256 limit) external onlyOwner {
+        require(paused, "PAUSE_FIRST");
+        require(limit >= claimAmount, "DAILY_LIMIT");
+        uint256 previous = dailyLimit;
+        dailyLimit = limit;
+        emit DailyLimitChanged(previous, limit);
     }
 
     /// @notice Owner can recover unused test ETH only while claims are paused.

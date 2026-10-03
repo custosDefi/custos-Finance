@@ -50,6 +50,72 @@ def test_address_normalizes_valid_lowercase():
 def test_caller_cannot_request_custom_amount_or_calldata():
     with pytest.raises(ValueError):
         f.ClaimRequest(address=RECIPIENT, captchaToken='test', amount='1 ETH', calldata='0x')
+    with pytest.raises(ValueError):
+        f.ClaimRequest(address=RECIPIENT, captchaRequired=False)
+
+
+def test_captcha_opt_out_is_explicit_and_defaults_to_required(tmp_path, monkeypatch):
+    monkeypatch.delenv('FAUCET_CAPTCHA_REQUIRED', raising=False)
+    assert f.Settings.environment().captcha_required
+    cfg = settings(tmp_path);cfg.captcha_secret = '';cfg.site_key = ''
+    assert not cfg.ready()
+    cfg.captcha_required = False
+    assert cfg.ready() and cfg.daily_requests is None
+
+
+def test_address_only_mode_preserves_ip_rate_limit_and_never_calls_captcha(tmp_path):
+    async def run():
+        cfg = settings(tmp_path);cfg.captcha_required = False;cfg.captcha_secret = '';cfg.site_key = '';cfg.ip_limit = 1
+        current = f.FaucetService(cfg)
+        current.verify_captcha = AsyncMock(side_effect=AssertionError('Address-only mode must not call Turnstile'))
+        current.chain.info = AsyncMock(return_value=info())
+        try:
+            result = await current.submit(f.ClaimRequest(address=RECIPIENT), request())
+            assert result['state'] == 'queued'
+            described = await current.describe()
+            assert described['enabled'] and described['captchaRequired'] is False and described['siteKey'] == ''
+            with pytest.raises(HTTPException) as exc:
+                await current.submit(f.ClaimRequest(address=RECIPIENT), request(forwarded='192.0.2.2'))
+            assert exc.value.status_code == 429 and exc.value.detail['code'] == 'RATE_LIMIT'
+            current.verify_captcha.assert_not_called()
+        finally:
+            await current.close()
+    asyncio.run(run())
+
+
+def test_required_captcha_rejects_omitted_token_before_signing(tmp_path):
+    async def run():
+        current = f.FaucetService(settings(tmp_path));current.chain.info = AsyncMock()
+        try:
+            with pytest.raises(HTTPException) as exc:
+                await current.submit(f.ClaimRequest(address=RECIPIENT), request())
+            assert exc.value.detail['code'] == 'CAPTCHA'
+            current.chain.info.assert_not_called()
+            assert not current.store.next()
+        finally:
+            await current.close()
+    asyncio.run(run())
+
+
+def test_daily_request_budget_follows_chain_limit_without_redeployment(tmp_path):
+    async def run():
+        cfg = settings(tmp_path);cfg.captcha_required = False
+        current = f.FaucetService(cfg)
+        current.chain.info = AsyncMock(return_value={**info(), 'dailyLimitWei': str(10**18)})
+        current.store.enqueue = lambda recipient, limit: {'id': 'a' * 32, 'recipient': recipient, 'state': 'queued', 'created': 0, 'tx_hash': None, 'error': '', 'limit': limit}
+        captured = []
+        original = current.store.enqueue
+        def enqueue(recipient, limit):
+            captured.append(limit);return original(recipient, limit)
+        current.store.enqueue = enqueue
+        try:
+            await current.submit(f.ClaimRequest(address=RECIPIENT), request())
+            current.chain.info.return_value = {**info(), 'dailyLimitWei': str(2 * 10**18)}
+            await current.submit(f.ClaimRequest(address=RECIPIENT), request())
+            assert captured == [1000, 2000]
+        finally:
+            await current.close()
+    asyncio.run(run())
 
 
 def test_settings_do_not_fall_back_to_project_relayer_key(monkeypatch):

@@ -42,6 +42,7 @@ FROM nginx:1.27-alpine
 ARG NGINX_CONFIG=deploy/nginx.conf
 COPY ${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
 COPY deploy/security-headers.conf /etc/nginx/security-headers.conf
+COPY deploy/cloudflare-real-ip.conf /etc/nginx/cloudflare-real-ip.conf
 COPY --from=build /workspace/apps/web/dist /usr/share/nginx/html
 RUN chmod -R a+rX /usr/share/nginx/html
 

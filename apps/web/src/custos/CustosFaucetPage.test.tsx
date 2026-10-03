@@ -28,3 +28,20 @@ it('restores a pending request after refresh without sending a second claim', as
   expect(container.querySelector<HTMLInputElement>('input')?.disabled).toBe(true)
   expect(fetchMock.mock.calls.every(call => call[1].method === 'GET')).toBe(true)
 })
+it('allows address-only submission when the server explicitly disables CAPTCHA', async () => {
+  const recipient = '0x2222222222222222222222222222222222222222'
+  const fetchMock = vi.fn().mockImplementation(async (_url, init) => ({ok: true, json: async () => init.method === 'POST'
+    ? {id: 'b'.repeat(32), recipient, state: 'queued', tx_hash: null, error: ''}
+    : {chainId: 91342, contract: '0x3333333333333333333333333333333333333333', enabled: true, captchaRequired: false, siteKey: '', message: '', amountWei: '1000000000000000'}}))
+  vi.stubGlobal('fetch', fetchMock)
+  container = document.createElement('div');document.body.appendChild(container);root = createRoot(container)
+  await act(async () => root.render(<CustosFaucetPage/>))
+  expect(container.textContent).not.toContain('Human verification')
+  const input = container.querySelector('input')!
+  await act(async () => {Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, recipient);input.dispatchEvent(new Event('input', {bubbles: true}))})
+  expect(container.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(false)
+  await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', {bubbles: true, cancelable: true})))
+  const post = fetchMock.mock.calls.find(call => call[1].method === 'POST')!
+  expect(JSON.parse(post[1].body)).toEqual({address: recipient})
+  expect(container.textContent).toContain('Queued for the official sender')
+})

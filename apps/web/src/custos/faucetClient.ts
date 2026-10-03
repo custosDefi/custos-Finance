@@ -2,6 +2,7 @@ import {utils} from 'ethers'
 
 export type FaucetConfig = {
   chainId: number; contract: string; siteKey: string; enabled: boolean; message: string
+  captchaRequired?: boolean
   amountWei?: string; cooldownSeconds?: number; reserveWei?: string
   dailyLimitWei?: string; distributedTodayWei?: string
 }

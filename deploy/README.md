@@ -54,6 +54,7 @@ npm run build -- --outDir "$release_dir/dist" --emptyOutDir
 cp ../../deploy/frontend-static.Dockerfile "$release_dir/Dockerfile"
 cp ../../deploy/nginx.vm.conf "$release_dir/nginx.vm.conf"
 cp ../../deploy/security-headers.conf "$release_dir/security-headers.conf"
+cp ../../deploy/cloudflare-real-ip.conf "$release_dir/cloudflare-real-ip.conf"
 tar -czf "$release_dir.tar.gz" -C "$release_dir" .
 ```
 

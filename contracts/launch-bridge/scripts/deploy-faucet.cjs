@@ -12,15 +12,36 @@ async function main() {
   const wallet = new ethers.Wallet(env.PRIVATE_KEY, provider);
   if (!ethers.utils.isAddress(env.FAUCET_OPERATOR_ADDRESS || '') || env.FAUCET_OPERATOR_ADDRESS === ethers.constants.AddressZero) throw Error('Explicit official operator address required');
   const amount = ethers.utils.parseEther(env.FAUCET_CLAIM_ETH || '0.001');
-  const daily = ethers.utils.parseEther(env.FAUCET_DAILY_ETH || '0.1');
+  const daily = ethers.utils.parseEther(env.FAUCET_DAILY_ETH || '1');
   const cooldown = Number(env.FAUCET_COOLDOWN_SECONDS || 86400);
   const {faucet} = compileFaucet(), factory = new ethers.ContractFactory(faucet.abi, faucet.bytecode, wallet);
   const args = [wallet.address, env.FAUCET_OPERATOR_ADDRESS, amount, cooldown, daily];
   const directory = path.resolve(__dirname, '../artifacts');
   const pendingFile = path.join(directory, 'faucet-deployment-pending.json');
   const target = path.resolve(__dirname, '../deployments/giwa-faucet.json');
-  if (fs.existsSync(target)) throw Error('Existing deployment record found; do not silently replace a funded faucet');
-  let record = fs.existsSync(pendingFile) ? JSON.parse(fs.readFileSync(pendingFile)) : null;
+  let replacing = false;
+  if (fs.existsSync(target)) {
+    if (!process.argv.includes('--replace-paused-empty')) throw Error('Existing deployment record found; explicit paused-empty replacement required');
+    const previous = JSON.parse(fs.readFileSync(target));
+    const old = new ethers.Contract(previous.address, faucet.abi, provider);
+    if (previous.chainId !== 91342 || (await old.owner()) !== wallet.address || !await old.paused() || !(await provider.getBalance(previous.address)).isZero()) throw Error('Previous faucet must be owner-controlled, paused and empty');
+    replacing = true;
+    console.log(JSON.stringify({replacementOf: previous.address,previousPaused: true,previousBalanceETH: '0'}));
+    if (send) {
+      const history = path.resolve(__dirname, '../deployments/history');
+      fs.mkdirSync(history, {recursive: true});
+      const archived = {...previous, retired: true, pausedOnRetirement: true, balanceETHOnRetirement: '0'};
+      fs.writeFileSync(path.join(history, 'giwa-faucet-' + previous.blockNumber + '.json'), JSON.stringify(archived, null, 2) + '\n');
+      if (fs.existsSync(pendingFile)) {
+        const oldPending = JSON.parse(fs.readFileSync(pendingFile));
+        if (oldPending.hash !== previous.transactionHash) throw Error('An unrelated pending deployment exists');
+        fs.renameSync(pendingFile, path.join(directory, 'faucet-deployment-completed-' + previous.blockNumber + '.json'));
+      }
+      fs.mkdirSync(directory, {recursive: true});
+      fs.renameSync(target, path.join(directory, 'faucet-retired-public-' + previous.blockNumber + '.json'));
+    }
+  }
+  let record = replacing && !send ? null : fs.existsSync(pendingFile) ? JSON.parse(fs.readFileSync(pendingFile)) : null;
   const deployment = factory.getDeployTransaction(...args);
   if (record && (record.creationData !== deployment.data || record.owner !== wallet.address)) throw Error('Saved deployment differs; inspect before sending');
   if (!record) {
@@ -44,7 +65,7 @@ async function main() {
   const receipt = await provider.waitForTransaction(record.hash, 2, 180000);
   if (!receipt || receipt.status !== 1) throw Error('Deployment failed/pending; inspect the saved transaction');
   const contract = new ethers.Contract(record.address, faucet.abi, provider);
-  if ((await contract.operator()).toLowerCase() !== record.operator.toLowerCase() || !(await contract.claimAmount()).eq(amount) || !(await contract.dailyLimit()).eq(daily)) throw Error('Deployment verification failed');
+  if ((await contract.owner()) !== wallet.address || (await contract.operator()).toLowerCase() !== record.operator.toLowerCase() || !(await contract.claimAmount()).eq(amount) || !(await contract.dailyLimit()).eq(daily) || !(await contract.claimCooldown()).eq(cooldown)) throw Error('Deployment verification failed');
   const publicRecord = {chainId: 91342, address: record.address, owner: record.owner, operator: record.operator, claimETH: ethers.utils.formatEther(amount), cooldownSeconds: cooldown, dailyETH: ethers.utils.formatEther(daily), transactionHash: record.hash, blockNumber: receipt.blockNumber, funded: false};
   fs.mkdirSync(path.dirname(target), {recursive: true});fs.writeFileSync(target, JSON.stringify(publicRecord, null, 2) + '\n');
   console.log(JSON.stringify(publicRecord));

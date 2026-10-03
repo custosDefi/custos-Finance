@@ -47,7 +47,7 @@ def address(value: str) -> str:
 class ClaimRequest(BaseModel):
     model_config = {'extra': 'forbid'}
     address: str = Field(min_length=42, max_length=42)
-    captchaToken: str = Field(min_length=1, max_length=2048)
+    captchaToken: str = Field(default='', max_length=2048)
 
     @field_validator('address')
     @classmethod
@@ -62,13 +62,14 @@ class Settings:
     key: str = field(default='', repr=False)
     captcha_secret: str = field(default='', repr=False)
     site_key: str = ''
+    captcha_required: bool = True  # Explicit operator opt-out only; never controlled by a request.
     rpc: str = 'https://sepolia-rpc.giwa.io'
     database: str = ''
     origins: tuple[str, ...] = ('https://custosfinance.xyz', 'https://www.custosfinance.xyz')
     trusted_proxies: tuple[str, ...] = ()
     max_fee: int = 10**12  # 0.000001 ETH per sponsored transaction, including L1 fee.
     ip_limit: int = 6
-    daily_requests: int = 100
+    daily_requests: int | None = None  # Default follows the onchain payout budget.
 
     @classmethod
     def environment(cls):
@@ -78,10 +79,12 @@ class Settings:
             key=os.getenv('FAUCET_OPERATOR_PRIVATE_KEY', ''),
             captcha_secret=os.getenv('FAUCET_TURNSTILE_SECRET', ''),
             site_key=os.getenv('FAUCET_TURNSTILE_SITE_KEY', ''),
+            captcha_required=os.getenv('FAUCET_CAPTCHA_REQUIRED', 'true').lower() != 'false',
             rpc=os.getenv('GIWA_RPC_URL', 'https://sepolia-rpc.giwa.io'),
             database=os.getenv('FAUCET_DATABASE_PATH', str(Path(__file__).parent / 'data' / 'faucet.db')),
             origins=tuple(x.strip() for x in os.getenv('FAUCET_ALLOWED_ORIGINS', 'https://custosfinance.xyz,https://www.custosfinance.xyz').split(',') if x.strip()),
             trusted_proxies=tuple(x.strip() for x in os.getenv('FAUCET_TRUSTED_PROXY_CIDRS', '').split(',') if x.strip()),
+            daily_requests=int(os.environ['FAUCET_DAILY_REQUEST_LIMIT']) if os.getenv('FAUCET_DAILY_REQUEST_LIMIT') else None,
         )
 
     def signer_ready(self):
@@ -91,7 +94,8 @@ class Settings:
             return False
 
     def ready(self):
-        return bool(self.enabled and self.captcha_secret and self.site_key and self.origins and self.signer_ready())
+        captcha_ready = not self.captcha_required or bool(self.captcha_secret and self.site_key)
+        return bool(self.enabled and captcha_ready and self.origins and self.signer_ready())
 
 
 class Store:
@@ -279,14 +283,15 @@ class FaucetService:
             reject(503, 'NOT_CONFIGURED', 'Sponsored faucet is not yet configured.')
 
     async def describe(self):
-        base = {'chainId': CHAIN_ID, 'contract': self.settings.contract, 'siteKey': self.settings.site_key,
+        base = {'chainId': CHAIN_ID, 'contract': self.settings.contract, 'siteKey': self.settings.site_key if self.settings.captcha_required else '',
+                'captchaRequired': self.settings.captcha_required,
                 'enabled': False, 'message': 'Sponsored faucet is not yet configured.'}
         if not self.settings.signer_ready():
             return base
         try:
             info = await self.chain.info()
             if not self.settings.ready():
-                message = ('Human verification is not yet configured.' if not self.settings.captcha_secret or not self.settings.site_key
+                message = ('Human verification is not yet configured.' if self.settings.captcha_required and (not self.settings.captcha_secret or not self.settings.site_key)
                            else 'Faucet service is awaiting activation.')
                 if info['paused']:
                     message = 'The faucet is paused. ' + message
@@ -329,15 +334,21 @@ class FaucetService:
         if body.address.lower() == self.settings.contract.lower():
             reject(400, 'RECIPIENT', 'The faucet cannot pay itself.')
         ip = self.client_ip(request)
-        client = hmac.new(self.settings.captcha_secret.encode(), ip.encode(), hashlib.sha256).hexdigest()
+        salt = hashlib.sha256(('custos-faucet-ip-v1:' + self.settings.key).encode()).digest()
+        client = hmac.new(salt, ip.encode(), hashlib.sha256).hexdigest()
         self.store.attempt(client, self.settings.ip_limit)
-        await self.verify_captcha(body.captchaToken, ip)
+        if self.settings.captcha_required:
+            if not body.captchaToken:
+                reject(400, 'CAPTCHA', 'Complete human verification before requesting test ETH.')
+            await self.verify_captcha(body.captchaToken, ip)
         try:
             info = await self.chain.info(body.address)
         except Exception:
             reject(503, 'ONCHAIN_UNAVAILABLE', 'Could not verify faucet state. Retry later.')
         check_info(info)
-        return public_job(self.store.enqueue(body.address, self.settings.daily_requests))
+        onchain_requests = min(int(info['dailyLimitWei']) // int(info['amountWei']), 2**63 - 1)
+        daily_requests = min(onchain_requests, self.settings.daily_requests) if self.settings.daily_requests is not None else onchain_requests
+        return public_job(self.store.enqueue(body.address, daily_requests))
 
     async def step(self):
         if not self.store.acquire(self.holder):

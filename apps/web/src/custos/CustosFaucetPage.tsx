@@ -11,6 +11,7 @@ export default function CustosFaucetPage() {
   const [error, setError] = useState(''), [pollError, setPollError] = useState(''), [busy, setBusy] = useState(false), [job, setJob] = useState<FaucetJob | null>(restored)
   const [refresh, setRefresh] = useState(0), [captchaRound, setCaptchaRound] = useState(0)
   const pending = Boolean(job && !['confirmed', 'failed'].includes(job.state))
+  const captchaRequired = config?.captchaRequired !== false
   useEffect(() => retainFaucetJob(job), [job])
   useEffect(() => {
     let active = true
@@ -38,13 +39,13 @@ export default function CustosFaucetPage() {
   }, [job?.id, job?.state])
   const onToken = useCallback((value: string) => setToken(value), [])
   async function submit(event: React.FormEvent) {
-    event.preventDefault();if (busy || pending || !config?.enabled || !token) return
+    event.preventDefault();if (busy || pending || !config?.enabled || (captchaRequired && !token)) return
     let recipient: string
     try {recipient = recipientAddress(input)} catch (reason: any) {setError(reason.message);return}
     if (recipient.toLowerCase() === config.contract.toLowerCase()) {setError('Enter your receiving wallet, not the faucet contract.');return}
     setBusy(true);setError('');setPollError('');setJob(null)
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000)
-    try {const result = await faucetApi<FaucetJob>('/requests', {address: recipient, captchaToken: token}, controller.signal);setInput(recipient);setJob(result)}
+    try {const result = await faucetApi<FaucetJob>('/requests', {address: recipient, ...(captchaRequired ? {captchaToken: token} : {})}, controller.signal);setInput(recipient);setJob(result)}
     catch (reason: any) {setError(reason.name === 'AbortError' ? 'Submission timed out. Retry with the same address; an existing request will be reused.' : reason.message)}
     finally {clearTimeout(timer);setBusy(false);setToken('');setCaptchaRound(round => round + 1)}
   }
@@ -57,14 +58,14 @@ export default function CustosFaucetPage() {
         <div className="rl-faucet-amount"><span>Per eligible address</span><strong>{amount} ETH</strong><small>{config?.cooldownSeconds ? 'Cooldown: ' + config.cooldownSeconds / 3600 + ' hours · Enforced onchain' : 'Amount and cooldown are read from the deployed contract'}</small></div>
         <label className="rl-field">Receiving wallet address<input value={input} onChange={event => {setInput(event.target.value);setError('')}} disabled={busy || pending} placeholder="0x…" autoComplete="off" spellCheck={false} maxLength={42} required/></label>
         <p className="rl-footnote">Double-check the address. Test ETH is sent on GIWA Sepolia (chain 91342), not Ethereum mainnet.</p>
-        {config?.enabled && config.siteKey && !pending ? <FaucetTurnstile key={captchaRound} siteKey={config.siteKey} onToken={onToken}/> : null}
+        {config?.enabled && captchaRequired && config.siteKey && !pending ? <FaucetTurnstile key={captchaRound} siteKey={config.siteKey} onToken={onToken}/> : null}
         {!config?.enabled ? <p className="rl-inline-note" role="status">{config?.message || (error ? 'Faucet service unavailable.' : 'Checking faucet service…')}</p> : null}
         {error ? <p className="rl-alert" role="alert">{error}</p> : null}
-        <button className="rl-button rl-full" disabled={busy || pending || !config?.enabled || !token} type="submit">{busy ? <Loader2 className="spin" size={16}/> : <Droplets size={16}/>}<span>{busy ? 'Submitting request…' : pending ? 'Delivery in progress' : 'Request test ETH'}</span></button>
+        <button className="rl-button rl-full" disabled={busy || pending || !config?.enabled || (captchaRequired && !token)} type="submit">{busy ? <Loader2 className="spin" size={16}/> : <Droplets size={16}/>}<span>{busy ? 'Submitting request…' : pending ? 'Delivery in progress' : 'Request test ETH'}</span></button>
         {job ? <div className="rl-faucet-result" role="status"><strong>{faucetJobLabel(job)}</strong><p>Receiver: <code>{job.recipient}</code></p>{job.error ? <p>{job.error}</p> : null}{pollError ? <p>{pollError}</p> : null}{job.tx_hash ? <a href={explorer + '/tx/' + job.tx_hash} target="_blank" rel="noreferrer">View transaction <ExternalLink size={14}/></a> : null}<small>Request {job.id}</small></div> : null}
         <button type="button" className="rl-outline rl-full" disabled={busy || pending} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={14}/><span>Refresh faucet status</span></button>
       </form>
-      <aside className="rl-panel rl-inset rl-faucet-info"><h2>Zero ETH to get started</h2><p>You do not send a transaction. Our official operator calls the faucet contract for your address and covers the transaction fee.</p><ol><li>Enter an Ethereum-compatible receiving address.</li><li>Complete human verification and request test ETH.</li><li>Follow the transaction until it confirms on GIWA Sepolia.</li></ol><dl><div><dt>Faucet reserve</dt><dd>{config?.reserveWei ? utils.formatEther(config.reserveWei) + ' ETH' : '—'}</dd></div><div><dt>Daily contract limit</dt><dd>{config?.dailyLimitWei ? utils.formatEther(config.dailyLimitWei) + ' ETH' : '—'}</dd></div></dl><p className="rl-inline-note">Testnet only. Test ETH has no monetary value. Address cooldowns, human verification and daily budgets limit abuse; they do not guarantee one claim per person.</p>{config?.contract ? <a className="rl-chain-link" href={explorer + '/address/' + config.contract} target="_blank" rel="noreferrer">Faucet contract <ExternalLink size={14}/></a> : null}<a className="rl-chain-link" href="https://faucet.giwa.io/" target="_blank" rel="noreferrer">Official GIWA faucet <ExternalLink size={14}/></a></aside>
+      <aside className="rl-panel rl-inset rl-faucet-info"><h2>Zero ETH to get started</h2><p>You do not send a transaction. Our official operator calls the faucet contract for your address and covers the transaction fee.</p><ol><li>Enter an Ethereum-compatible receiving address.</li><li>{captchaRequired ? 'Complete human verification and request test ETH.' : 'Click Request test ETH. No human verification is currently required.'}</li><li>Follow the transaction until it confirms on GIWA Sepolia.</li></ol><dl><div><dt>Faucet reserve</dt><dd>{config?.reserveWei ? utils.formatEther(config.reserveWei) + ' ETH' : '—'}</dd></div><div><dt>Daily contract limit</dt><dd>{config?.dailyLimitWei ? utils.formatEther(config.dailyLimitWei) + ' ETH' : '—'}</dd></div></dl><p className="rl-inline-note">Testnet only. Test ETH has no monetary value. Address cooldowns, IP request limits{captchaRequired ? ', human verification' : ''} and daily budgets limit abuse; they do not guarantee one claim per person.</p>{config?.contract ? <a className="rl-chain-link" href={explorer + '/address/' + config.contract} target="_blank" rel="noreferrer">Faucet contract <ExternalLink size={14}/></a> : null}<a className="rl-chain-link" href="https://faucet.giwa.io/" target="_blank" rel="noreferrer">Official GIWA faucet <ExternalLink size={14}/></a></aside>
     </div>
   </section>
 }
