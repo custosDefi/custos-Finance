@@ -75,6 +75,11 @@ FAUCET_TRUSTED_PROXY_CIDRS=<exact internal nginx proxy IP or subnet>
 Configure Turnstile hostnames and action `faucet`. No CAPTCHA bypass is provided.
 Without valid signer, contract and CAPTCHA configuration, the page explicitly
 shows unavailable and submissions return 503; other services remain unaffected.
+When the contract and dedicated signer are configured but CAPTCHA/activation
+is missing, config still returns actual chain-read reserve, amount and pause
+state. This read-only display does not start a worker or authorize a payout.
+The frontend retains only public request metadata in sessionStorage so a page
+reload continues checking the same request; no CAPTCHA token or key is stored.
 
 Trust forwarded IP only from the actual private nginx proxy range, never
 0.0.0.0/0. Existing nginx overwrites X-Real-IP. Without a trusted proxy setting,
@@ -87,3 +92,19 @@ API: `GET /api/faucet/config`, `POST /api/faucet/requests` with
 `{address, captchaToken}`, `GET /api/faucet/requests/{id}`. Signing runs only in
 the server worker, not request handlers or frontend. `FAUCET_ENABLED` alone
 does not authorize deployment or transfer of funds.
+
+## GIWA deployment and real-chain checks — 2026-10-03
+
+- Contract: `0x857cd2B7FAC430b88E34bD0DbBDb4cc69Aa1d251`.
+- Owner: `0xCb440121395fcE13bcA9a5D5ED826b2A47Ede44F`.
+- Dedicated operator: `0xc504b7eE17CA998bF0AEd2F24eA4f1ED013C130a`.
+- 0.001 ETH deposit/recovery passed before the authorized 4 ETH deposit.
+- Operator paid gas for a real 0.001 ETH payout to an initially empty test
+  wallet; duplicate claim simulation was rejected by the onchain cooldown.
+- Public transaction hashes and receiver are in
+  `contracts/launch-bridge/deployments/giwa-faucet.json`. Signed bytes/keys are
+  excluded from git and from the public deployment record.
+- Reserve after this test: 3.999 ETH. The owner restored pause. Until genuine
+  Turnstile credentials are supplied, keep FAUCET_ENABLED=false. The direct
+  operator test and isolated API/CAPTCHA fixture do NOT prove a production
+  website request or genuine human verification has completed.

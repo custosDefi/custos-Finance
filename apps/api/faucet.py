@@ -84,12 +84,14 @@ class Settings:
             trusted_proxies=tuple(x.strip() for x in os.getenv('FAUCET_TRUSTED_PROXY_CIDRS', '').split(',') if x.strip()),
         )
 
-    def ready(self):
+    def signer_ready(self):
         try:
-            return bool(self.enabled and self.captcha_secret and self.site_key and self.origins and
-                        address(self.contract) and Account.from_key(self.key))
+            return bool(address(self.contract) and Account.from_key(self.key))
         except (ValueError, TypeError):
             return False
+
+    def ready(self):
+        return bool(self.enabled and self.captcha_secret and self.site_key and self.origins and self.signer_ready())
 
 
 class Store:
@@ -279,10 +281,16 @@ class FaucetService:
     async def describe(self):
         base = {'chainId': CHAIN_ID, 'contract': self.settings.contract, 'siteKey': self.settings.site_key,
                 'enabled': False, 'message': 'Sponsored faucet is not yet configured.'}
-        if not self.settings.ready():
+        if not self.settings.signer_ready():
             return base
         try:
             info = await self.chain.info()
+            if not self.settings.ready():
+                message = ('Human verification is not yet configured.' if not self.settings.captcha_secret or not self.settings.site_key
+                           else 'Faucet service is awaiting activation.')
+                if info['paused']:
+                    message = 'The faucet is paused. ' + message
+                return {**base, **info, 'message': message}
             check_info(info)
             return {**base, **info, 'enabled': True, 'message': ''}
         except HTTPException as exc:

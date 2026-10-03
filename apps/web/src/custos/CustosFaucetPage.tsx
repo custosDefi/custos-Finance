@@ -2,21 +2,23 @@ import React, {useCallback, useEffect, useState} from 'react'
 import {utils} from 'ethers'
 import {Droplets, ExternalLink, Loader2, RefreshCw, ShieldCheck} from 'lucide-react'
 import FaucetTurnstile from './FaucetTurnstile'
-import {faucetApi, FaucetConfig, FaucetJob, faucetJobLabel, recipientAddress} from './faucetClient'
+import {faucetApi, FaucetConfig, FaucetJob, faucetJobLabel, recipientAddress, restoreFaucetJob, retainFaucetJob} from './faucetClient'
 
 const explorer = 'https://sepolia-explorer.giwa.io'
 export default function CustosFaucetPage() {
-  const [config, setConfig] = useState<FaucetConfig | null>(null), [input, setInput] = useState(''), [token, setToken] = useState('')
-  const [error, setError] = useState(''), [pollError, setPollError] = useState(''), [busy, setBusy] = useState(false), [job, setJob] = useState<FaucetJob | null>(null)
+  const [restored] = useState(restoreFaucetJob)
+  const [config, setConfig] = useState<FaucetConfig | null>(null), [input, setInput] = useState(restored?.recipient || ''), [token, setToken] = useState('')
+  const [error, setError] = useState(''), [pollError, setPollError] = useState(''), [busy, setBusy] = useState(false), [job, setJob] = useState<FaucetJob | null>(restored)
   const [refresh, setRefresh] = useState(0), [captchaRound, setCaptchaRound] = useState(0)
   const pending = Boolean(job && !['confirmed', 'failed'].includes(job.state))
+  useEffect(() => retainFaucetJob(job), [job])
   useEffect(() => {
     let active = true
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 15000)
     setError('');setConfig(null)
     void faucetApi<FaucetConfig>('/config', undefined, controller.signal).then(value => {
-      if (controller.signal.aborted) return
+      if (!active || controller.signal.aborted) return
       if (value.chainId !== 91342) throw new Error('This faucet must use GIWA Sepolia.')
       setConfig(value)
     }).catch(reason => {if (active) setError(reason.name === 'AbortError' ? 'Faucet service is taking too long. Refresh to retry.' : reason.message)}).finally(() => clearTimeout(timer))

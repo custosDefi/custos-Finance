@@ -6,6 +6,22 @@ export type FaucetConfig = {
   dailyLimitWei?: string; distributedTodayWei?: string
 }
 export type FaucetJob = {id: string; recipient: string; state: 'queued' | 'signed' | 'submitted' | 'confirmed' | 'failed' | 'attention'; tx_hash: string | null; error: string}
+const jobStorageKey = 'custos-faucet-request-v1'
+export function restoreFaucetJob(): FaucetJob | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(jobStorageKey) || 'null')
+    if (!value || !/^[a-f0-9]{32}$/.test(value.id) || !['queued', 'signed', 'submitted', 'confirmed', 'failed', 'attention'].includes(value.state)) return null
+    const recipient = recipientAddress(value.recipient)
+    if (value.tx_hash !== null && !/^0x[a-fA-F0-9]{64}$/.test(value.tx_hash)) return null
+    return {id: value.id, recipient, state: value.state, tx_hash: value.tx_hash, error: ''}
+  } catch {return null}
+}
+export function retainFaucetJob(job: FaucetJob | null) {
+  try {
+    if (job) sessionStorage.setItem(jobStorageKey, JSON.stringify({id: job.id, recipient: job.recipient, state: job.state, tx_hash: job.tx_hash}))
+    else sessionStorage.removeItem(jobStorageKey)
+  } catch { /* Private browsing/storage restrictions must not break delivery. */ }
+}
 const base = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
 
 export function recipientAddress(input: string): string {

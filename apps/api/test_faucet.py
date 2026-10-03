@@ -86,6 +86,26 @@ def test_queue_deduplicates_address_and_survives_restart(tmp_path):
     assert Path(store.filename).stat().st_mode & 0o777 == 0o600
 
 
+def test_unconfigured_captcha_still_shows_real_reserve_but_cannot_send(tmp_path):
+    async def run():
+        cfg = settings(tmp_path);cfg.enabled = False;cfg.captcha_secret = '';cfg.site_key = ''
+        current = f.FaucetService(cfg)
+        current.chain.info = AsyncMock(return_value={**info(), 'paused': True, 'reserveWei': str(4 * 10**18)})
+        try:
+            described = await current.describe()
+            assert not described['enabled'] and described['reserveWei'] == str(4 * 10**18)
+            assert described['amountWei'] == '1000000000000000' and described['paused']
+            assert 'Human verification is not yet configured' in described['message']
+            assert cfg.key not in str(described)
+            with pytest.raises(HTTPException) as error:
+                await current.submit(f.ClaimRequest(address=RECIPIENT, captchaToken='fake'), request())
+            assert error.value.status_code == 503
+            assert not Path(cfg.database).exists()
+        finally:
+            await current.close()
+    asyncio.run(run())
+
+
 def test_persistent_client_rate_daily_budget_and_worker_lease(tmp_path):
     store = f.Store(str(tmp_path / 'faucet.db'))
     store.attempt('hashed-client', 1)
