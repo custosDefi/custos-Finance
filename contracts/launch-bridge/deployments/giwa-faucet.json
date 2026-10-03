@@ -17,5 +17,24 @@
   "dailyLimitSetterTestPassed": true,
   "dailyLimitSetterTransactionHash": "0x1e8aff5e4d9fa21f2640560fc1e689e7512af264f06b400f08d55328512c62a7",
   "captchaRequired": false,
-  "pausedBeforeActivation": true
+  "pausedBeforeActivation": true,
+  "activationTransactionHash": "0x9ee77cc8a59d2fad778cd3effd1809c2b09c50e5164f148a5332d424c752b887",
+  "websiteTest": {
+    "date": "2026-10-03",
+    "url": "https://www.custosfinance.xyz/#/reality/faucet",
+    "recipient": "0x94621D2ce84CEa614f29989e9fC9DDbCecA9F3B5",
+    "requestId": "8b43efed00ca49bbb412a92b79f94705",
+    "transactionHash": "0x2b2aa7abba339ab30b1f04cf1ef61669c44b7c4b1bbfb34b280dcfcd69376171",
+    "initialBalanceETH": "0",
+    "receivedETH": "0.001",
+    "reserveAfterETH": "3.998",
+    "confirmed": true,
+    "desktopAndMobilePassed": true,
+    "refreshResumePassed": true,
+    "duplicateCooldownPassed": true,
+    "walletCalls": 0,
+    "captchaRequests": 0,
+    "apiRevision": "da1c30e",
+    "webRevision": "30d3f51"
+  }
 }

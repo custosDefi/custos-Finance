@@ -142,3 +142,23 @@ The old immutable-cap contract above was paused and emptied by its owner;
 3.999 ETH was recovered for migration. Its public record is archived under
 `deployments/history/giwa-faucet-37643031.json`. Future cap changes use the
 setter rather than migration.
+
+## Production address-only verification — 2026-10-03
+
+The adjustable contract is active, unpaused, and limited to 1 ETH per UTC day.
+The actual production desktop/mobile webpage submitted an address-only request
+for an initially empty test wallet. The API's dedicated operator paid gas and
+the recipient received exactly 0.001 GIWA test ETH. Refresh resumed the same
+request; a duplicate was rejected by the cooldown (HTTP 429). No wallet call
+or CAPTCHA request occurred. The reserve after the test was 3.998 ETH.
+
+Activation and public website-test transaction hashes are recorded in
+`contracts/launch-bridge/deployments/giwa-faucet.json`. Backend image regression:
+79 tests passed. NFT, Stake, Bridge, Rankings, Account and Launchpad page smoke
+checks, service health and market WebSocket snapshot passed. API remains
+loopback-only, signer files root-owned mode 600, and no signed/submitted/
+attention faucet jobs remain unresolved. Bridge Relayer was not restarted.
+
+This proves address-only production delivery, not human verification or
+one-person-one-claim protection. IP limits, address cooldowns and daily budgets
+remain enforced; CAPTCHA is currently disabled by explicit operator choice.
