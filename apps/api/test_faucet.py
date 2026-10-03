@@ -361,3 +361,35 @@ def test_preparation_retries_are_bounded_and_never_broadcast(tmp_path):
         finally:
             await current.close()
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'http', 'json_rpc'])
+def test_read_rpc_retries_transient_provider_failure(tmp_path, failure):
+    async def run():
+        calls = []
+        async def handler(request):
+            calls.append(request)
+            if len(calls) < 3:
+                if failure == 'timeout':
+                    raise httpx.ReadTimeout('provider timeout')
+                if failure == 'http':
+                    return httpx.Response(429)
+                return httpx.Response(200, json={'error': {'code': -32005}})
+            return httpx.Response(200, json={'result': '0x164ce'})
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            assert await f.Chain(settings(tmp_path), client).rpc('eth_chainId', []) == '0x164ce'
+            assert len(calls) == 3
+    asyncio.run(run())
+
+
+def test_broadcast_is_never_retried_by_read_rpc_layer(tmp_path):
+    async def run():
+        calls = []
+        async def handler(request):
+            calls.append(request)
+            raise httpx.ReadTimeout('uncertain broadcast')
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with pytest.raises(httpx.ReadTimeout):
+                await f.Chain(settings(tmp_path), client).rpc('eth_sendRawTransaction', ['signed-test-fixture'])
+            assert len(calls) == 1
+    asyncio.run(run())

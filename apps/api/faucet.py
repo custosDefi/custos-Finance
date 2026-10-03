@@ -187,17 +187,34 @@ class Store:
             db.execute('DELETE FROM lease WHERE holder=?', (holder,))
 
 
+def transient_rpc_error(error):
+    return (
+        isinstance(error, httpx.RequestError)
+        or isinstance(error, httpx.HTTPStatusError)
+        and error.response.status_code in (408, 429, 500, 502, 503, 504)
+        or isinstance(error, RuntimeError) and str(error) == 'RPC_UNAVAILABLE'
+    )
+
+
 class Chain:
     def __init__(self, settings, client):
         self.settings, self.client = settings, client
 
     async def rpc(self, method, params):
-        response = await self.client.post(self.settings.rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
-        response.raise_for_status()
-        body = response.json()
-        if body.get('error') or 'result' not in body:
-            raise RuntimeError('RPC_UNAVAILABLE')  # Never expose provider payloads or signed bytes.
-        return body['result']
+        # Retry only idempotent reads here. Broadcast retries remain under the
+        # durable worker's same-byte / same-hash rules, never request handlers.
+        for attempt in range(3):
+            try:
+                response = await self.client.post(self.settings.rpc, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+                response.raise_for_status()
+                body = response.json()
+                if body.get('error') or 'result' not in body:
+                    raise RuntimeError('RPC_UNAVAILABLE')  # Never expose provider payloads or signed bytes.
+                return body['result']
+            except Exception as error:
+                if method == 'eth_sendRawTransaction' or not transient_rpc_error(error) or attempt == 2:
+                    raise
+                await asyncio.sleep(0.25 * (attempt + 1))
 
     async def call(self, signature, types=(), values=(), output='uint256', target=None):
         data = '0x' + (keccak(text=signature)[:4] + encode(types, values)).hex()
@@ -364,13 +381,7 @@ class FaucetService:
                                       retries=0, retry_at=0, error='')
                     job = self.store.get(job['id'])
                 except Exception as error:
-                    transient = (
-                        isinstance(error, httpx.RequestError)
-                        or isinstance(error, httpx.HTTPStatusError)
-                        and error.response.status_code in (408, 429, 500, 502, 503, 504)
-                        or isinstance(error, RuntimeError) and str(error) == 'RPC_UNAVAILABLE'
-                    )
-                    if transient:
+                    if transient_rpc_error(error):
                         retries = job['retries'] + 1
                         self.store.update(job['id'], retries=retries,
                                           retry_at=int(time.time()) + min(60, retries * 5),
