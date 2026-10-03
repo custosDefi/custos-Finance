@@ -303,3 +303,61 @@ def test_uncertain_nonce_blocks_other_recipients_until_operator_review(tmp_path)
         current.chain.prepare.assert_not_called()
         await current.close()
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('kind', ['rpc', 'timeout', 'rate_limit'])
+def test_transient_preparation_failure_retries_before_any_broadcast(tmp_path, kind):
+    async def run():
+        current = f.FaucetService(settings(tmp_path))
+        job = current.store.enqueue(RECIPIENT, 100)
+        error = {
+            'rpc': RuntimeError('RPC_UNAVAILABLE'),
+            'timeout': httpx.ReadTimeout('provider private payload must not leak'),
+            'rate_limit': httpx.HTTPStatusError('private provider payload', request=httpx.Request('POST', 'https://rpc.invalid'), response=httpx.Response(429)),
+        }[kind]
+        current.chain.prepare = AsyncMock(side_effect=error)
+        current.chain.rpc = AsyncMock()
+        try:
+            await current.step()
+            pending = current.store.get(job['id'])
+            assert pending['state'] == 'queued' and pending['retries'] == 1
+            assert not pending['raw_tx'] and not pending['tx_hash']
+            assert 'private' not in pending['error']
+            current.chain.rpc.assert_not_called()
+            await current.step()
+            assert current.chain.prepare.call_count == 1  # Wait for backoff.
+            current.store.update(job['id'], retry_at=0)
+            current.chain.prepare = AsyncMock(return_value=('same-signed-bytes', HASH))
+            async def rpc(method, params):
+                if method == 'eth_getTransactionReceipt':
+                    return None
+                if method == 'eth_sendRawTransaction':
+                    assert params == ['same-signed-bytes']
+                    return HASH
+                raise AssertionError(method)
+            current.chain.rpc = rpc
+            await current.step()
+            assert current.store.get(job['id'])['state'] == 'submitted'
+            assert current.store.get(job['id'])['retry_at'] == 0
+            assert current.store.get(job['id'])['retries'] == 0
+            current.chain.prepare.assert_awaited_once()
+        finally:
+            await current.close()
+    asyncio.run(run())
+
+
+def test_preparation_retries_are_bounded_and_never_broadcast(tmp_path):
+    async def run():
+        current = f.FaucetService(settings(tmp_path))
+        job = current.store.enqueue(RECIPIENT, 100)
+        current.store.update(job['id'], retries=19)
+        current.chain.prepare = AsyncMock(side_effect=RuntimeError('RPC_UNAVAILABLE'))
+        current.chain.rpc = AsyncMock()
+        try:
+            await current.step()
+            assert current.store.get(job['id'])['state'] == 'failed'
+            assert not current.store.get(job['id'])['tx_hash']
+            current.chain.rpc.assert_not_called()
+        finally:
+            await current.close()
+    asyncio.run(run())

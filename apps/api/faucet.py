@@ -360,9 +360,24 @@ class FaucetService:
             if job['state'] == 'queued':
                 try:
                     raw, tx_hash = await self.chain.prepare(job['recipient'])
-                    self.store.update(job['id'], state='signed', raw_tx=raw, tx_hash=tx_hash)
+                    self.store.update(job['id'], state='signed', raw_tx=raw, tx_hash=tx_hash,
+                                      retries=0, retry_at=0, error='')
                     job = self.store.get(job['id'])
-                except Exception:
+                except Exception as error:
+                    transient = (
+                        isinstance(error, httpx.RequestError)
+                        or isinstance(error, httpx.HTTPStatusError)
+                        and error.response.status_code in (408, 429, 500, 502, 503, 504)
+                        or isinstance(error, RuntimeError) and str(error) == 'RPC_UNAVAILABLE'
+                    )
+                    if transient:
+                        retries = job['retries'] + 1
+                        self.store.update(job['id'], retries=retries,
+                                          retry_at=int(time.time()) + min(60, retries * 5),
+                                          state='failed' if retries >= 20 else 'queued',
+                                          error='RPC temporarily unavailable. No transaction was sent.' if retries >= 20
+                                          else 'RPC preparation retry pending. No transaction has been sent.')
+                        return
                     self.store.update(job['id'], state='failed', error='Onchain eligibility or operator gas check failed. No transaction was sent.')
                     return
             try:

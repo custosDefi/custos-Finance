@@ -32,6 +32,7 @@ click and narrow/mobile scrolling without clipping its Faucet link.
   simulation and bounded gas including OP Stack L1 fee. A payout cannot spend
   from the operator's ETH balance beyond its transaction fee.
 - SQLite queue survives restart. It saves raw signed bytes/hash before sending,
+  retries transient RPC preparation errors with bounded backoff before signing,
   serializes account nonces across workers, deduplicates active recipient jobs,
   and retries uncertain broadcasts with identical bytes. Two confirmations are
   required before reporting delivery. Failed/unknown RPC responses never claim
@@ -117,12 +118,14 @@ does not authorize deployment or transfer of funds.
 - Operator paid gas for a real 0.001 ETH payout to an initially empty test
   wallet; duplicate claim simulation was rejected by the onchain cooldown.
 - Public transaction hashes and receiver are in
-  `contracts/launch-bridge/deployments/giwa-faucet.json`. Signed bytes/keys are
+  `contracts/launch-bridge/deployments/history/giwa-faucet-37643031.json`. Signed bytes/keys are
   excluded from git and from the public deployment record.
-- Reserve after this test: 3.999 ETH. The owner restored pause. Until genuine
+- Historical reserve after this test: 3.999 ETH. The owner restored pause. Until genuine
   Turnstile credentials are supplied, keep FAUCET_ENABLED=false. The direct
   operator test and isolated API/CAPTCHA fixture do NOT prove a production
   website request or genuine human verification has completed.
+  These were the initial deployment conditions, superseded by the explicitly
+  authorized address-only adjustable-cap migration below.
 
 ## Changing the current daily budget without redeploying
 
