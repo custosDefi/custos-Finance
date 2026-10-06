@@ -570,3 +570,58 @@ def test_moderation_authority_visibility_persistence_and_restore(setup):
     assert c.get('/api/reality/assets').json()['items'][0]['id']==id
     with r.engine().connect() as db:
         assert len(list(db.execute(r.select(r.audits).where(r.audits.c.asset_id==id))))==2
+
+def test_feedback_rewards_require_admin_and_are_audited_idempotent(setup):
+    c,owner,other,admin,auth=setup
+    h,ah=auth(owner),auth(admin)
+    body={'id':r.uid(),'wallet':owner.address,'points':50,'reason':'Useful mobile feedback','reference':'feedback-001'}
+    assert c.post('/api/reality/admin/points',json=body).status_code==401
+    assert c.post('/api/reality/admin/points',headers=h,json=body).status_code==403
+    assert c.get('/api/reality/admin/points',headers=h).status_code==403
+    result=c.post('/api/reality/admin/points',headers=ah,json=body)
+    assert result.status_code==200,result.text
+    assert result.json()['profile']['points']==50 and result.json()['profile']['bonusPoints']==50
+    assert c.post('/api/reality/admin/points',headers=ah,json=body).json()['duplicate']
+    assert c.post('/api/reality/admin/points',headers=ah,json={**body,'id':r.uid()}).status_code==409
+    assert c.post('/api/reality/admin/points',headers=ah,json={**body,'points':60}).status_code==409
+    history=c.get('/api/reality/admin/points',headers=ah,params={'wallet':owner.address}).json()
+    assert len(history['items'])==1 and history['items'][0]['admin']==admin.address.lower()
+    assert c.get('/api/reality/season/stats').json()['pointsIssued']==50
+    assert c.get('/api/reality/season/leaderboard').json()['entries'][0]['wallet']==owner.address.lower()
+    for points in [0,-1,100001,1.5,'50',True]:
+        assert c.post('/api/reality/admin/points',headers=ah,json={**body,'id':r.uid(),'reference':r.uid(),'points':points}).status_code==422
+    assert c.post('/api/reality/admin/points',headers=ah,json={**body,'id':r.uid(),'reference':'   '}).status_code==400
+    assert c.post('/api/reality/admin/points/'+body['id']+'/revoke',headers=h,json={'reason':'Mistake'}).status_code==403
+    for _ in range(2):
+        revoked=c.post('/api/reality/admin/points/'+body['id']+'/revoke',headers=ah,json={'reason':'Duplicate feedback report'})
+        assert revoked.status_code==200 and revoked.json()['profile']['points']==0
+    row=c.get('/api/reality/admin/points',headers=ah).json()['items'][0]
+    assert row['revoked_by']==admin.address.lower() and row['revoked_reason']=='Duplicate feedback report'
+    assert c.get('/api/reality/season/leaderboard').json()['entries']==[]
+
+
+def test_confirmed_stake_counts_before_season_registration_and_admin_can_recover(setup,monkeypatch):
+    from eth_abi import encode
+    c,owner,other,admin,auth=setup
+    vault='0x'+'51'*20;tx='0x'+'41'*32
+    monkeypatch.setenv('REALITY_CFI_STAKING',vault)
+    log={'address':vault,'topics':[r.STAKE_TOPIC,'0x'+owner.address.lower()[2:].rjust(64,'0')],'data':'0x'+encode(['uint256']*4,[10**18,2000*10**18,2000*10**18,r.now()]).hex(),'transactionHash':tx,'logIndex':'0x0','blockNumber':'0xa'}
+    receipt={'status':'0x1','to':vault,'from':owner.address.lower(),'blockNumber':'0xa','logs':[log]}
+    async def rpc(method,params):
+        return {'eth_chainId':hex(91342),'eth_getTransactionReceipt':receipt,'eth_blockNumber':'0xc','eth_getBlockByNumber':{'timestamp':hex(r.now())}}[method]
+    monkeypatch.setattr(r,'rpc',rpc)
+    h,ah=auth(owner),auth(admin)
+    assert c.post('/api/reality/admin/staking/verify',headers=h,json={'wallet':owner.address,'tx_hash':tx}).status_code==403
+    assert c.post('/api/reality/admin/staking/verify',headers=ah,json={'wallet':other.address,'tx_hash':tx}).status_code==400
+    receipt['status']='0x0'
+    assert c.post('/api/reality/admin/staking/verify',headers=ah,json={'wallet':owner.address,'tx_hash':tx}).status_code==409
+    receipt['status']='0x1'
+    for _ in range(2):
+        response=c.post('/api/reality/admin/staking/verify',headers=ah,json={'wallet':owner.address,'tx_hash':tx})
+        assert response.status_code==200,response.text
+        assert response.json()['profile']['points']==100 and response.json()['profile']['stakeCompleted']
+    assert c.get('/api/reality/season/leaderboard').json()['entries'][0]['points']==100
+    assert c.post('/api/reality/season/register',headers=h,json={}).json()['points']==100
+    award={'id':r.uid(),'wallet':owner.address,'points':25,'reason':'Reported stake issue','reference':'stake-feedback-001'}
+    assert c.post('/api/reality/admin/points',headers=ah,json=award).json()['profile']['points']==125
+    assert c.post('/api/reality/staking/verify',headers=h,json={'tx_hash':tx}).json()['profile']['points']==125

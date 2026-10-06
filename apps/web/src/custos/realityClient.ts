@@ -16,7 +16,7 @@ export async function api<T=any>(path:string,body?:unknown,method?:string):Promi
     const response=await fetch(REALITY_API+'/api/reality'+path,{method:verb,signal:controller.signal,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})})
     if(!response.ok){if(response.status===401&&credential===token){setCredential('');window.dispatchEvent(new Event('custos-auth-expired'))}let message='Request failed';try{const value=await response.json();message=typeof value.detail==='string'?value.detail:'Please check your input'}catch{message='Server temporarily unavailable'}throw new Error(message)}
     return await response.json() as T
-   }catch(e:any){if(e.name==='AbortError')throw new Error('The server is taking too long. Please retry.');throw e}finally{if(timer)clearTimeout(timer)}
+   }catch(e:any){if(e.name==='AbortError')throw new Error('The server is taking too long. Please retry.');if(e instanceof TypeError)throw new Error('Could not connect to the server. Check your connection and try again.');throw e}finally{if(timer)clearTimeout(timer)}
   }
   if(verb!=='GET'){reads.clear();try{return await request()}finally{reads.clear()}}
   // Executable financial quotes are always fresh; cached values are display reads.
@@ -30,7 +30,7 @@ export function snapshotDisplay<T>(key:string){return reads.peek<T>('display:'+k
 export function invalidateRealityReads(){reads.clear()}
 export function displayRead<T>(key:string,ttl:number,load:()=>Promise<T>){return reads.read('display:'+key,ttl,load)}
 export async function uploadFile(file:File,privateFile=false){
-  const r=await fetch(REALITY_API+'/api/reality/uploads?private='+privateFile,{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':file.type,'X-File-Name':encodeURIComponent(file.name)},body:file});const value=await r.json();if(!r.ok)throw new Error(value.detail||'Upload failed');return value as {id:string;url:string;name:string}
+  try{const r=await fetch(REALITY_API+'/api/reality/uploads?private='+privateFile,{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':file.type,'X-File-Name':encodeURIComponent(file.name)},body:file});if(r.status===401){setCredential('');window.dispatchEvent(new Event('custos-auth-expired'));throw new Error('Session expired. Please sign in again. Your form is still here.')}if(r.status===413)throw new Error('This file is too large for the server. Please choose a smaller file.');let value:any;try{value=await r.json()}catch{throw new Error('Upload server temporarily unavailable. Your form is still here; please retry.')}if(!r.ok)throw new Error(value.detail||'Upload failed');return value as {id:string;url:string;name:string}}catch(e){if(e instanceof TypeError)throw new Error('Image upload could not connect to the server. Your form is still here. Check your connection and retry.');throw e}
 }
 export async function openProof(id:string){const r=await fetch(REALITY_API+'/api/reality/media/'+id,{headers:{Authorization:'Bearer '+credential}});if(!r.ok)throw new Error('Could not load evidence');const url=URL.createObjectURL(await r.blob());const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 export function photoUrl(value:string,size?:number){return value.startsWith('/api/')?REALITY_API+value+(size?(value.includes('?')?'&':'?')+'size='+size:''):value}

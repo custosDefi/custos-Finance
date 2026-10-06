@@ -39,6 +39,12 @@ trades=Table('reality_trades',metadata,Column('id',String,primary_key=True),Colu
 _engine=None
 season_profiles=Table('reality_season_profiles',metadata,Column('wallet',String,primary_key=True),Column('code',String,unique=True,nullable=False),Column('inviter',String,nullable=False),Column('x_handle',String,nullable=False),Column('x_status',String,nullable=False),Column('created_at',Integer,nullable=False))
 x_visits=Table('reality_x_visits',metadata,Column('wallet',String,primary_key=True),Column('created_at',Integer,nullable=False))
+point_awards=Table('reality_point_awards',metadata,
+    Column('id',String,primary_key=True),Column('wallet',String,nullable=False),
+    Column('points',Integer,nullable=False),Column('reason',Text,nullable=False),
+    Column('reference',String(200),unique=True,nullable=False),Column('admin',String,nullable=False),
+    Column('created_at',Integer,nullable=False),Column('revoked_by',String),
+    Column('revoked_reason',Text),Column('revoked_at',Integer))
 account_profiles=Table('reality_account_profiles',metadata,Column('wallet',String,primary_key=True),Column('display_name',String(40),nullable=False))
 stake_events=Table('reality_stake_events',metadata,Column('id',String,primary_key=True),Column('wallet',String,nullable=False),Column('side',String,nullable=False),Column('eth_amount',String,nullable=False),Column('cfi_amount',String,nullable=False),Column('tx_hash',String,nullable=False),Column('block_number',Integer,nullable=False),Column('timestamp',Integer,nullable=False))
 launch_listings=Table('reality_launch_listings',metadata,Column('asset_id',String,primary_key=True),Column('timestamp',Integer,nullable=False),Column('block_number',Integer,nullable=False))
@@ -894,13 +900,18 @@ def season_scores(db):
     profiles=list(db.execute(select(season_profiles)).mappings())
     verified_x=set(db.execute(select(x_visits.c.wallet)).scalars())
     verified_stakes=set(db.execute(select(stake_events.c.wallet).where(stake_events.c.side=='stake')).scalars())
+    bonuses=dict(db.execute(select(point_awards.c.wallet,func.sum(point_awards.c.points)).where(point_awards.c.revoked_at.is_(None)).group_by(point_awards.c.wallet)).all())
+    # A confirmed stake is a completed task even if the user never opened Season 1.
+    registered={p['wallet'] for p in profiles}
+    profiles.extend({'wallet':w,'code':'','inviter':'','x_handle':''} for w in (verified_stakes|set(bonuses))-registered)
     scores=[]
     for p in profiles:
         invites=sum(1 for q in profiles if q['inviter']==p['wallet'] and issued.get(q['wallet'],0)>0)
         launches=issued.get(p['wallet'],0)
         x_approved=p['wallet'] in verified_x
-        points=(100 if launches else 0)+invites*100+(10 if x_approved else 0)+(100 if p['wallet'] in verified_stakes else 0)
-        scores.append({'wallet':p['wallet'],'referralCode':p['code'],'points':points,'stakeCompleted':p['wallet'] in verified_stakes,'verifiedTransactions':launches,'qualifiedReferrals':invites,'qualified':points>0,'season':'S1','xStatus':'visited' if x_approved else 'none','xHandle':p['x_handle']})
+        bonus=int(bonuses.get(p['wallet'],0))
+        points=(100 if launches else 0)+invites*100+(10 if x_approved else 0)+(100 if p['wallet'] in verified_stakes else 0)+bonus
+        scores.append({'wallet':p['wallet'],'referralCode':p['code'],'points':points,'bonusPoints':bonus,'stakeCompleted':p['wallet'] in verified_stakes,'verifiedTransactions':launches,'qualifiedReferrals':invites,'qualified':points>0,'season':'S1','xStatus':'visited' if x_approved else 'none','xHandle':p['x_handle']})
     scores.sort(key=lambda p:(-p['points'],p['wallet']))
     for i,p in enumerate(scores):p['rank']=i+1 if p['qualified'] else 0
     return scores
@@ -908,7 +919,7 @@ def season_scores(db):
 @router.get('/season/profile/{wallet}')
 def season_profile(wallet:str):
     with engine().connect() as db:
-        return next((p for p in season_scores(db) if p['wallet']==wallet.lower()),{'wallet':wallet.lower(),'referralCode':'','points':0,'verifiedTransactions':0,'qualifiedReferrals':0,'rank':0,'qualified':False,'season':'S1','xStatus':'none','xHandle':''})
+        return next((p for p in season_scores(db) if p['wallet']==wallet.lower()),{'wallet':wallet.lower(),'referralCode':'','points':0,'bonusPoints':0,'stakeCompleted':False,'verifiedTransactions':0,'qualifiedReferrals':0,'rank':0,'qualified':False,'season':'S1','xStatus':'none','xHandle':''})
 
 @router.get('/season/stats')
 def season_stats():
@@ -949,3 +960,53 @@ def season_x_visit(wallet=Depends(wallet_auth)):
     except IntegrityError:
         pass  # Concurrent clicks on the same wallet still award only once.
     return season_profile(wallet)
+
+class PointAward(BaseModel):
+    id:str=Field(pattern=r'^[0-9a-fA-F-]{36}$')
+    wallet:str=Field(pattern=r'^0x[0-9a-fA-F]{40}$')
+    points:int=Field(gt=0,le=100000,strict=True)
+    reason:str=Field(min_length=3,max_length=1000)
+    reference:str=Field(min_length=3,max_length=200)
+
+@router.get('/admin/points')
+def admin_points(wallet:str='',page:int=1,admin=Depends(admin_auth)):
+    wallet=wallet.strip().lower()
+    if wallet and not re.fullmatch(r'0x[0-9a-f]{40}',wallet):raise HTTPException(400,'Invalid wallet address')
+    page=max(1,page)
+    query=select(point_awards)
+    if wallet:query=query.where(point_awards.c.wallet==wallet)
+    with engine().connect() as db:
+        rows=db.execute(query.order_by(point_awards.c.created_at.desc(),point_awards.c.id.desc()).offset((page-1)*25).limit(26)).mappings().all()
+    return {'items':[dict(r) for r in rows[:25]],'has_more':len(rows)>25,'page':page,'profile':season_profile(wallet) if wallet else None}
+
+@router.post('/admin/points')
+def award_points(body:PointAward,admin=Depends(admin_auth)):
+    from sqlalchemy.exc import IntegrityError
+    wallet=body.wallet.lower();reason=body.reason.strip();reference=body.reference.strip()
+    if len(reason)<3 or len(reference)<3:raise HTTPException(400,'A reason and unique feedback reference are required')
+    duplicate=False
+    try:
+        with engine().begin() as db:
+            db.execute(insert(point_awards).values(id=body.id,wallet=wallet,points=body.points,reason=reason,reference=reference,admin=admin,created_at=now()))
+    except IntegrityError:
+        with engine().connect() as db:existing=db.execute(select(point_awards).where(point_awards.c.id==body.id)).mappings().first()
+        if not existing or any(existing[k]!=v for k,v in {'wallet':wallet,'points':body.points,'reason':reason,'reference':reference,'admin':admin}.items()):
+            raise HTTPException(409,'This request ID or feedback reference has already been used')
+        duplicate=True
+    return {'ok':True,'duplicate':duplicate,'profile':season_profile(wallet)}
+
+class RevokePoints(BaseModel):reason:str=Field(min_length=3,max_length=1000)
+@router.post('/admin/points/{id}/revoke')
+def revoke_points(id:str,body:RevokePoints,admin=Depends(admin_auth)):
+    reason=body.reason.strip()
+    if len(reason)<3:raise HTTPException(400,'Enter a revocation reason')
+    with engine().begin() as db:
+        row=db.execute(select(point_awards).where(point_awards.c.id==id)).mappings().first()
+        if not row:raise HTTPException(404,'Award not found')
+        db.execute(update(point_awards).where(point_awards.c.id==id,point_awards.c.revoked_at.is_(None)).values(revoked_by=admin,revoked_reason=reason,revoked_at=now()))
+    return {'ok':True,'profile':season_profile(row['wallet'])}
+
+class StakeRepair(Attachment):wallet:str=Field(pattern=r'^0x[0-9a-fA-F]{40}$')
+@router.post('/admin/staking/verify')
+async def admin_verify_staking(body:StakeRepair,admin=Depends(admin_auth)):
+    return await verify_staking(body,body.wallet.lower())

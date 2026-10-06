@@ -14,6 +14,7 @@ type Profile = {
   wallet: string;
   referralCode: string;
   points: number;
+  bonusPoints?: number;
   stakeCompleted?: boolean;
   verifiedTransactions: number;
   qualifiedReferrals: number;
@@ -28,6 +29,7 @@ type Entry = {
   rank: number;
   wallet: string;
   points: number;
+  bonusPoints?: number;
   verifiedTransactions: number;
   qualifiedReferrals: number;
 };
@@ -170,6 +172,7 @@ export default function PublicBetaPage({
         <div className="rl-season-profile-stats"><ProfileStat label="Points" value={number(profile?.points||0)}/><ProfileStat label="Rank" value={profile?.qualified?`#${profile.rank}`:'—'}/><ProfileStat label="Tokens launched" value={number(profile?.verifiedTransactions||0)}/><ProfileStat label="Referrals" value={number(profile?.qualifiedReferrals||0)}/></div>
         {wallet?<button type="button" className="secondary-button rl-season-invite" disabled={busy} onClick={()=>void copyInvite()} title="Copy unique invite link"><Copy size={15}/><span>Copy invite link</span></button>:<button className="primary-button rl-season-connect" onClick={()=>void onConnect()}><span>Connect Wallet</span></button>}
       </section>
+      {(profile?.bonusPoints||0)>0?<p className="rl-inline-note">Community feedback rewards: {profile?.bonusPoints} points · Included in your total</p>:null}
       <section className="rl-season-tasks grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Season tasks">
         <div className="giwa-panel rounded-[22px] p-5">
           <div className="flex justify-between text-emerald-200"><Users size={17}/><span>+10 · once</span></div>
@@ -201,7 +204,7 @@ export default function PublicBetaPage({
             <button className={board==='reality'?'active':''} aria-pressed={board==='reality'} onClick={()=>setBoard('reality')}>Reality tasks</button>
             <button className={board==='original'?'active':''} aria-pressed={board==='original'} onClick={()=>setBoard('original')}>Original Season 1</button>
           </div>
-          <p className="rl-footnote">{board==='original'?'Live leaderboard from the original Custos Season 1: historical points, transactions and referrals. Reality task points are tracked separately.':'Points from X visits, token launches, staking and qualified invitations.'}</p>
+          <p className="rl-footnote">{board==='original'?'Live leaderboard from the original Custos Season 1: historical points, transactions and referrals. Reality task points are tracked separately.':'Points from X visits, token launches, staking, qualified invitations and community feedback rewards.'}</p>
           {board==='original'&&originalError?<div className="rl-alert" role="alert">{originalError}<button onClick={()=>void refreshOriginal()}>Retry</button></div>:null}
           <div className="mt-5 overflow-hidden rounded-2xl border border-white/[.08]">
             <div className="grid grid-cols-[58px_1fr_90px_80px] bg-white/[.035] px-4 py-3 text-[9px] font-semibold tracking-[.1em] text-white/35 md:grid-cols-[70px_1fr_120px_110px_100px]">
