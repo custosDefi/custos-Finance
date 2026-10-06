@@ -36,5 +36,13 @@
     "captchaRequests": 0,
     "apiRevision": "da1c30e",
     "webRevision": "30d3f51"
+  },
+  "status": "retired",
+  "replacedBy": "0xb77C2e25D7a998556eE0C71d170e7FD7Ead080a1",
+  "retirement": {
+    "pauseTransactionHash": "0xc1fc481086dafb60c8afd6c12caf83d226764c062979b670d9b301bd5f2222d8",
+    "recoveryTransactionHash": "0xeacd17954a1889b1e8624414c6214c12455030229743bbb9b3ed6bbfb555f0df",
+    "recoveredETH": "3.73",
+    "balanceAfterETH": "0"
   }
 }

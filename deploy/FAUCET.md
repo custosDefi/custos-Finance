@@ -136,21 +136,38 @@ the new chain value automatically; no rebuild, env edit, counter reset or new
 contract is needed. Lowering the limit below today's payouts stops further
 claims until the next UTC day or a valid increase. Operator cannot change it.
 
-The current adjustable-cap contract is
-`0x08a9e665fC13e65021DA8e8b2C8993Db843d5Fb7`, owner and operator unchanged.
-The old immutable-cap contract above was paused and emptied by its owner;
-3.999 ETH was recovered for migration. Its public record is archived under
-`deployments/history/giwa-faucet-37643031.json`. Future cap changes use the
-setter rather than migration.
+The previous adjustable-cap contract
+`0x08a9e665fC13e65021DA8e8b2C8993Db843d5Fb7` was paused and emptied by its
+owner. 3.73 ETH was recovered for the configurable-contract migration. Its
+retirement is recorded in `deployments/giwa-faucet.json`.
+
+## Current configurable deployment — 2026-10-06
+
+The current contract is
+`0xb77C2e25D7a998556eE0C71d170e7FD7Ead080a1`. It keeps the same owner and
+dedicated operator, and exposes owner-only setters for `claimAmount`,
+`claimCooldown` and `dailyLimit`. All three setters require the contract to be
+paused first; changing a value does not reset `distributedPerDay`.
+
+Current live settings are 0.001 ETH per claim, 0 seconds cooldown and 100 ETH
+per UTC day. The reserve, rather than the nominal daily budget, remains the
+hard balance ceiling. The production API reads these values directly from the
+new contract, so future changes do not require redeployment or an API code
+change.
+
+The migration paused and recovered the old balance, deployed the new contract,
+funded it, exercised all three setters, restored the live settings and
+activated it. The public transaction record is
+`contracts/launch-bridge/deployments/giwa-faucet-configurable.json`.
 
 ## Production address-only verification — 2026-10-03
 
-The adjustable contract is active, unpaused, and limited to 1 ETH per UTC day.
+The configurable contract is active and unpaused with a 0-second cooldown.
 The actual production desktop/mobile webpage submitted an address-only request
 for an initially empty test wallet. The API's dedicated operator paid gas and
 the recipient received exactly 0.001 GIWA test ETH. Refresh resumed the same
-request; a duplicate was rejected by the cooldown (HTTP 429). No wallet call
-or CAPTCHA request occurred. The reserve after the test was 3.998 ETH.
+request. No wallet call or CAPTCHA request occurred. The live recipient,
+request and transaction are recorded in the configurable deployment record.
 
 Activation and public website-test transaction hashes are recorded in
 `contracts/launch-bridge/deployments/giwa-faucet.json`. Backend image regression:

@@ -50,12 +50,15 @@ export default function CustosFaucetPage() {
     finally {clearTimeout(timer);setBusy(false);setToken('');setCaptchaRound(round => round + 1)}
   }
   const amount = config?.amountWei ? utils.formatEther(config.amountWei) : '—'
+  const cooldown = typeof config?.cooldownSeconds === 'number'
+    ? config.cooldownSeconds === 0 ? 'Cooldown: none · Enforced onchain' : 'Cooldown: ' + config.cooldownSeconds / 3600 + ' hours · Enforced onchain'
+    : 'Amount and cooldown are read from the deployed contract'
   return <section className="rl-faucet-page">
     <div className="rl-heading"><div><p className="rl-eyebrow">GAS-SPONSORED · GIWA SEPOLIA</p><h1>GIWA test ETH faucet</h1><p>Paste your address. We pay the gas. No wallet connection or signature required.</p></div><Droplets size={36}/></div>
     <div className="rl-faucet-layout">
       <form className="rl-panel rl-inset rl-faucet-form" onSubmit={event => void submit(event)}>
         <div className="rl-panel-heading"><h2>Receive test ETH</h2><ShieldCheck size={22}/></div>
-        <div className="rl-faucet-amount"><span>Per eligible address</span><strong>{amount} ETH</strong><small>{config?.cooldownSeconds ? 'Cooldown: ' + config.cooldownSeconds / 3600 + ' hours · Enforced onchain' : 'Amount and cooldown are read from the deployed contract'}</small></div>
+        <div className="rl-faucet-amount"><span>Per eligible address</span><strong>{amount} ETH</strong><small>{cooldown}</small></div>
         <label className="rl-field">Receiving wallet address<input value={input} onChange={event => {setInput(event.target.value);setError('')}} disabled={busy || pending} placeholder="0x…" autoComplete="off" spellCheck={false} maxLength={42} required/></label>
         <p className="rl-footnote">Double-check the address. Test ETH is sent on GIWA Sepolia (chain 91342), not Ethereum mainnet.</p>
         {config?.enabled && captchaRequired && config.siteKey && !pending ? <FaucetTurnstile key={captchaRound} siteKey={config.siteKey} onToken={onToken}/> : null}

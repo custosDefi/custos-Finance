@@ -20,6 +20,7 @@
     "build:faucet": "node scripts/faucet-artifact.cjs",
     "test:faucet": "node scripts/test-faucet.cjs",
     "deploy:faucet": "node scripts/deploy-faucet.cjs",
+    "test:faucet:configurable": "node scripts/test-configurable-faucet.cjs",
     "test:faucet:service": "node scripts/test-faucet-service.cjs"
   },
   "devDependencies": {
