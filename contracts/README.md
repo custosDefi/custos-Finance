@@ -3,6 +3,7 @@
 这里汇总项目的 Solidity 源码、已知部署地址、区块浏览器验证结果以及可复现的编译输入。
 
 - [链上合约与源码索引](DEPLOYMENTS.md)：按功能列出合约地址、浏览器链接和源码。
+- [可转发的合约开源报告](OPEN-SOURCE-REPORT-2026-11-24.md)：包含固定及历史合约明细，链接可独立打开。
 - [Reality 代币地址快照](deployments/giwa-reality-tokens-2026-11-24/manifest.json)：分片列出截至指定区块的 6,605 个发行实例。
 - [旧版市场部署](deployments/giwa-market-history-2026-11-24.json)：80 个历史合约地址及源码路径。
 - [源码验证与编译输入](verification/README.md)：编译器版本、标准 JSON 输入及许可信息。
