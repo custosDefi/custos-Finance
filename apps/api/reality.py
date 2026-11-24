@@ -5,7 +5,9 @@ SQLite is suitable for a single persistent VM. Cloud Run requires PostgreSQL + G
 """
 from __future__ import annotations
 import asyncio, hashlib, io, json, os, re, secrets, time, uuid
+from concurrent.futures import Future
 from pathlib import Path
+from threading import Lock
 from typing import Literal
 import httpx
 from eth_account import Account
@@ -17,6 +19,7 @@ from decimal import Decimal, InvalidOperation
 from eth_utils import keccak
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy import (create_engine, MetaData, Table, Column, String, Text, Integer, Float,
@@ -457,7 +460,9 @@ async def rpc(method,params):
         loop=asyncio.get_running_loop()
         if _rpc_client is None or _rpc_client.is_closed or _rpc_loop is not loop:
             _rpc_client=httpx.AsyncClient(timeout=httpx.Timeout(10,connect=4),limits=httpx.Limits(max_connections=20,max_keepalive_connections=10));_rpc_loop=loop
-        r=await _rpc_client.post(config()['rpc'],json={'jsonrpc':'2.0','id':1,'method':method,'params':params});r.raise_for_status();body=r.json()
+        # The RPC URL comes from the environment; it does not require a database
+        # connection. In particular, do not block the event loop on the DB pool.
+        r=await _rpc_client.post(os.getenv('GIWA_RPC_URL','https://sepolia-rpc.giwa.io'),json={'jsonrpc':'2.0','id':1,'method':method,'params':params});r.raise_for_status();body=r.json()
     except (httpx.HTTPError,ValueError):
         raise HTTPException(503,'RPC temporarily unavailable. Retry later')
     if body.get('error'): raise HTTPException(503,'RPC temporarily unavailable')
@@ -466,8 +471,8 @@ class Attachment(BaseModel): tx_hash:str=Field(pattern=r'^0x[0-9a-fA-F]{64}$')
 ETH_USD_FEED='ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace'
 STAKE_TOPIC='0x'+keccak(text='Staked(address,uint256,uint256,uint256,uint256)').hex()
 UNSTAKE_TOPIC='0x'+keccak(text='Unstaked(address,uint256,uint256)').hex()
-def staking_address():
-    address=config()['cfi_staking'].lower()
+def staking_address(cfg=None):
+    address=(cfg if cfg is not None else config())['cfi_staking'].lower()
     if not re.fullmatch(r'0x[0-9a-f]{40}',address):raise HTTPException(503,'CFI staking is not configured')
     return address
 
@@ -489,7 +494,7 @@ async def read_binance_price():
 
 async def binance_staking_quote(request,address,value):
     global _binance_price_task
-    wallet=wallet_auth(request) if request.headers.get('authorization') else ''
+    wallet=await run_in_threadpool(wallet_auth,request) if request.headers.get('authorization') else ''
     cached=_binance_price_cache
     if not cached or time.monotonic()-cached[0]>5 or not -5<=now()-cached[2]<=5:
         if _binance_price_task is None or _binance_price_task.done() or _binance_price_task.get_loop() is not asyncio.get_running_loop():_binance_price_task=asyncio.create_task(read_binance_price())
@@ -512,11 +517,12 @@ async def binance_staking_quote(request,address,value):
 
 @router.get('/staking/quote')
 async def staking_quote(request:Request,amount:str):
-    address=staking_address()
+    cfg=await run_in_threadpool(config)
+    address=staking_address(cfg)
     if not re.fullmatch(r'\d{1,7}(\.\d{1,18})?',amount):raise HTTPException(400,'Enter a valid ETH amount with up to 18 decimals')
     value=int(Decimal(amount)*10**18)
     if not 0<value<=10**24:raise HTTPException(400,'ETH amount is out of range')
-    if config()['cfi_price_source']=='binance':return await binance_staking_quote(request,address,value)
+    if cfg['cfi_price_source']=='binance':return await binance_staking_quote(request,address,value)
     if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
     try:
         async with httpx.AsyncClient(timeout=20) as client:
@@ -549,7 +555,7 @@ def decode_stake_event(log,stamp):
 
 @router.post('/staking/verify')
 async def verify_staking(body:Attachment,wallet=Depends(wallet_auth)):
-    address=staking_address()
+    address=await run_in_threadpool(staking_address)
     if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
     receipt=await rpc('eth_getTransactionReceipt',[body.tx_hash])
     if not receipt or receipt.get('status')!='0x1':raise HTTPException(409,'Transaction has not confirmed successfully')
@@ -562,18 +568,32 @@ async def verify_staking(body:Attachment,wallet=Depends(wallet_auth)):
         row=decode_stake_event(log,int(header['timestamp'],16))
         if row and row['wallet']==wallet:records.append(row)
     if not records:raise HTTPException(400,'No matching staking event found')
-    with engine().begin() as db:
-        for row in records:
-            if not db.execute(select(stake_events.c.id).where(stake_events.c.id==row['id'])).scalar():db.execute(insert(stake_events).values(**row))
-    return {'ok':True,'profile':season_profile(wallet)}
+    def record():
+        with engine().begin() as db:
+            for row in records:
+                if not db.execute(select(stake_events.c.id).where(stake_events.c.id==row['id'])).scalar():db.execute(insert(stake_events).values(**row))
+        invalidate_season_scores()
+        return {'ok':True,'profile':season_profile(wallet)}
+    return await run_in_threadpool(record)
 
 async def sync_staking():
-    cfg=config();address=cfg['cfi_staking'];first=cfg['cfi_start_block']
+    cfg=await run_in_threadpool(config);address=cfg['cfi_staking'];first=cfg['cfi_start_block']
     if not address or not first:return
     if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
     cursor_key='cfi_index_block:'+address.lower()
     updated_key='cfi_index_updated_at:'+address.lower()
-    with engine().connect() as db:cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key==cursor_key)).scalar()
+    def read_cursor():
+        with engine().connect() as db:return db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key==cursor_key)).scalar()
+    def save_chunk(a,b,records):
+        with engine().begin() as db:
+            db.execute(delete(stake_events).where(stake_events.c.block_number>=a,stake_events.c.block_number<=b))
+            if records:db.execute(insert(stake_events),records)
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key==cursor_key));db.execute(insert(runtime_settings).values(key=cursor_key,value=str(b+1)))
+        invalidate_season_scores()
+    def save_updated(end,latest):
+        with engine().begin() as db:
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key==updated_key));db.execute(insert(runtime_settings).values(key=updated_key,value=str(now()) if end==latest else '0'))
+    cursor=await run_in_threadpool(read_cursor)
     start=max(first,int(cursor)-16) if cursor else first
     latest=int(await rpc('eth_blockNumber',[]),16)-2;end=min(latest,start+4999)
     for a in range(start,end+1,1000):
@@ -585,12 +605,8 @@ async def sync_staking():
             if block not in times:times[block]=int((await rpc('eth_getBlockByNumber',[hex(block),False]))['timestamp'],16)
             row=decode_stake_event(log,times[block])
             if row:records.append(row)
-        with engine().begin() as db:
-            db.execute(delete(stake_events).where(stake_events.c.block_number>=a,stake_events.c.block_number<=b))
-            if records:db.execute(insert(stake_events),records)
-            db.execute(delete(runtime_settings).where(runtime_settings.c.key==cursor_key));db.execute(insert(runtime_settings).values(key=cursor_key,value=str(b+1)))
-    with engine().begin() as db:
-        db.execute(delete(runtime_settings).where(runtime_settings.c.key==updated_key));db.execute(insert(runtime_settings).values(key=updated_key,value=str(now()) if end==latest else '0'))
+        await run_in_threadpool(save_chunk,a,b,records)
+    await run_in_threadpool(save_updated,end,latest)
 
 @router.get('/account/staking')
 def account_staking(page:int=1,wallet=Depends(wallet_auth)):
@@ -634,6 +650,7 @@ async def attach(id:str,body:Attachment,wallet=Depends(wallet_auth)):
     with engine().begin() as db:
         changed=db.execute(update(assets).where(assets.c.id==id,assets.c.token_address.is_(None)).values(token_address=token,launch_id=launch_id,tx_hash=body.tx_hash))
         if changed.rowcount!=1: raise HTTPException(409,'Project already has a token')
+    invalidate_season_scores()
     return {'ok':True,'token_address':token,'launch_id':launch_id}
 
 @router.get('/activity')
@@ -645,11 +662,23 @@ def activity():
 
 _index_task=None
 async def sync_trades():
-    address=config()['launchpad']
+    address=(await run_in_threadpool(config))['launchpad']
     if not address: return
-    with engine().connect() as db:
-        txs=list(db.execute(select(assets.c.tx_hash).where(assets.c.token_address.is_not(None))).scalars())
-        cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_block')).scalar()
+    def read_state():
+        with engine().connect() as db:
+            txs=list(db.execute(select(assets.c.tx_hash).where(assets.c.token_address.is_not(None))).scalars())
+            cursor=db.execute(select(runtime_settings.c.value).where(runtime_settings.c.key=='index_block')).scalar()
+        return txs,cursor
+    def save_chunk(a,b,records):
+        with engine().begin() as db:
+            db.execute(delete(trades).where(trades.c.block_number>=a,trades.c.block_number<=b))
+            if records:db.execute(insert(trades),records)
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key=='index_block'));db.execute(insert(runtime_settings).values(key='index_block',value=str(b+1)))
+    def save_updated(end,latest):
+        with engine().begin() as db:
+            db.execute(delete(runtime_settings).where(runtime_settings.c.key=='index_updated_at'))
+            db.execute(insert(runtime_settings).values(key='index_updated_at',value=str(now()) if end==latest else '0'))
+    txs,cursor=await run_in_threadpool(read_state)
     if not txs: return
     if not cursor:
         blocks=[]
@@ -678,13 +707,8 @@ async def sync_trades():
             first,second,quote_reserve,token_reserve=decode(['uint256']*4,bytes.fromhex(log['data'][2:]))
             is_buy=log['topics'][0].lower()==buy.lower()
             records.append({'id':log['transactionHash']+':'+str(int(log['logIndex'],16)),'launch_id':int(log['topics'][1],16),'wallet':'0x'+log['topics'][2][-40:].lower(),'block_number':block,'timestamp':block_times[block],'side':'buy' if is_buy else 'sell','quote_amount':str(first if is_buy else second),'token_amount':str(second if is_buy else first),'quote_reserve':str(quote_reserve),'token_reserve':str(token_reserve),'tx_hash':log['transactionHash']})
-        with engine().begin() as db:
-            db.execute(delete(trades).where(trades.c.block_number>=a,trades.c.block_number<=b))
-            if records:db.execute(insert(trades),records)
-            db.execute(delete(runtime_settings).where(runtime_settings.c.key=='index_block'));db.execute(insert(runtime_settings).values(key='index_block',value=str(b+1)))
-    with engine().begin() as db:
-        db.execute(delete(runtime_settings).where(runtime_settings.c.key=='index_updated_at'))
-        db.execute(insert(runtime_settings).values(key='index_updated_at',value=str(now()) if end==latest else '0'))
+        await run_in_threadpool(save_chunk,a,b,records)
+    await run_in_threadpool(save_updated,end,latest)
 
 async def start_reality_index():
     global _index_task
@@ -700,10 +724,15 @@ async def start_reality_index():
     _index_task=asyncio.create_task(loop())
 
 async def sync_listings():
-    address=config()['launchpad']
+    address=(await run_in_threadpool(config))['launchpad']
     if not address:return
-    with engine().connect() as db:
-        rows=db.execute(select(assets).where(assets.c.token_address.is_not(None),assets.c.tx_hash.is_not(None),~assets.c.id.in_(select(launch_listings.c.asset_id))).limit(20)).mappings().all()
+    def read_rows():
+        with engine().connect() as db:
+            return db.execute(select(assets).where(assets.c.token_address.is_not(None),assets.c.tx_hash.is_not(None),~assets.c.id.in_(select(launch_listings.c.asset_id))).limit(20)).mappings().all()
+    def save_listing(asset_id,stamp,block):
+        with engine().begin() as db:
+            if not db.execute(select(launch_listings.c.asset_id).where(launch_listings.c.asset_id==asset_id)).scalar():db.execute(insert(launch_listings).values(asset_id=asset_id,timestamp=stamp,block_number=block))
+    rows=await run_in_threadpool(read_rows)
     if not rows:return
     if int(await rpc('eth_chainId',[]),16)!=91342:raise HTTPException(503,'GIWA RPC network mismatch')
     head=int(await rpc('eth_blockNumber',[]),16)
@@ -713,8 +742,7 @@ async def sync_listings():
         block=int(receipt['blockNumber'],16)
         if head-block<1:continue
         stamp=int((await rpc('eth_getBlockByNumber',[hex(block),False]))['timestamp'],16)
-        with engine().begin() as db:
-            if not db.execute(select(launch_listings.c.asset_id).where(launch_listings.c.asset_id==row['id'])).scalar():db.execute(insert(launch_listings).values(asset_id=row['id'],timestamp=stamp,block_number=block))
+        await run_in_threadpool(save_listing,row['id'],stamp,block)
 async def stop_reality_index():
     if _index_task:
         _index_task.cancel()
@@ -895,18 +923,57 @@ def health():
     with engine().connect() as db: db.execute(select(func.count()).select_from(users))
     return {'ok':True,'chain_id':91342,'launchpad_configured':bool(config()['launchpad'])}
 
-def season_scores(db):
-    issued=dict(db.execute(select(assets.c.wallet,func.count()).where(assets.c.token_address.is_not(None)).group_by(assets.c.wallet)).all())
-    profiles=list(db.execute(select(season_profiles)).mappings())
-    verified_x=set(db.execute(select(x_visits.c.wallet)).scalars())
-    verified_stakes=set(db.execute(select(stake_events.c.wallet).where(stake_events.c.side=='stake')).scalars())
-    bonuses=dict(db.execute(select(point_awards.c.wallet,func.sum(point_awards.c.points)).where(point_awards.c.revoked_at.is_(None)).group_by(point_awards.c.wallet)).all())
+_season_scores_lock=Lock()
+_season_scores_generation=0
+_season_scores_pending=None
+
+def invalidate_season_scores():
+    global _season_scores_generation
+    with _season_scores_lock:_season_scores_generation+=1
+
+def season_scores():
+    """Share only in-flight work; committed score changes force a fresh read."""
+    global _season_scores_pending
+    while True:
+        with _season_scores_lock:
+            if _season_scores_pending is None:
+                future=Future();generation=_season_scores_generation
+                _season_scores_pending=(future,generation);leader=True
+            else:
+                future,generation=_season_scores_pending;leader=False
+        if leader:
+            try:result=calculate_season_scores()
+            except BaseException as error:
+                with _season_scores_lock:
+                    _season_scores_pending=None
+                    future.set_exception(error)
+                raise
+            with _season_scores_lock:
+                _season_scores_pending=None
+                future.set_result(result)
+        else:result=future.result()
+        with _season_scores_lock:
+            if generation==_season_scores_generation:return result
+
+def calculate_season_scores():
+    # Release the pooled connection before calculating and sorting scores.
+    with engine().connect() as db:
+        issued=dict(db.execute(select(assets.c.wallet,func.count()).where(assets.c.token_address.is_not(None)).group_by(assets.c.wallet)).all())
+        profiles=list(db.execute(select(season_profiles)).mappings())
+        verified_x=set(db.execute(select(x_visits.c.wallet)).scalars())
+        verified_stakes=set(db.execute(select(stake_events.c.wallet).where(stake_events.c.side=='stake')).scalars())
+        bonuses=dict(db.execute(select(point_awards.c.wallet,func.sum(point_awards.c.points)).where(point_awards.c.revoked_at.is_(None)).group_by(point_awards.c.wallet)).all())
     # A confirmed stake is a completed task even if the user never opened Season 1.
     registered={p['wallet'] for p in profiles}
     profiles.extend({'wallet':w,'code':'','inviter':'','x_handle':''} for w in (verified_stakes|set(bonuses))-registered)
+    invite_counts={}
+    for profile in profiles:
+        if issued.get(profile['wallet'],0)>0:
+            inviter=profile['inviter']
+            invite_counts[inviter]=invite_counts.get(inviter,0)+1
     scores=[]
     for p in profiles:
-        invites=sum(1 for q in profiles if q['inviter']==p['wallet'] and issued.get(q['wallet'],0)>0)
+        invites=invite_counts.get(p['wallet'],0)
         launches=issued.get(p['wallet'],0)
         x_approved=p['wallet'] in verified_x
         bonus=int(bonuses.get(p['wallet'],0))
@@ -918,17 +985,16 @@ def season_scores(db):
 
 @router.get('/season/profile/{wallet}')
 def season_profile(wallet:str):
-    with engine().connect() as db:
-        return next((p for p in season_scores(db) if p['wallet']==wallet.lower()),{'wallet':wallet.lower(),'referralCode':'','points':0,'bonusPoints':0,'stakeCompleted':False,'verifiedTransactions':0,'qualifiedReferrals':0,'rank':0,'qualified':False,'season':'S1','xStatus':'none','xHandle':''})
+    return next((p for p in season_scores() if p['wallet']==wallet.lower()),{'wallet':wallet.lower(),'referralCode':'','points':0,'bonusPoints':0,'stakeCompleted':False,'verifiedTransactions':0,'qualifiedReferrals':0,'rank':0,'qualified':False,'season':'S1','xStatus':'none','xHandle':''})
 
 @router.get('/season/stats')
 def season_stats():
-    with engine().connect() as db:rows=season_scores(db)
+    rows=season_scores()
     return {'participants':len(rows),'verifiedTransactions':sum(r['verifiedTransactions'] for r in rows),'pointsIssued':sum(r['points'] for r in rows),'qualifiedReferrals':sum(r['qualifiedReferrals'] for r in rows)}
 
 @router.get('/season/leaderboard')
 def season_board():
-    with engine().connect() as db:rows=season_scores(db)
+    rows=season_scores()
     return {'entries':[r for r in rows if r['qualified']][:25]}
 
 class SeasonRegistration(BaseModel):ref_code:str=Field(default='',max_length=32)
@@ -942,6 +1008,7 @@ def season_register(body:SeasonRegistration,wallet=Depends(wallet_auth)):
             if inviter==wallet:raise HTTPException(400,'Self-referrals are not allowed')
             if issued:inviter=''
             db.execute(insert(season_profiles).values(wallet=wallet,code='CST'+secrets.token_hex(8).upper(),inviter=inviter or '',x_handle='',x_status='none',created_at=now()))
+    if not existing:invalidate_season_scores()
     return season_profile(wallet)
 
 
@@ -952,13 +1019,17 @@ def x_config():
 @router.post('/season/x-visit')
 def season_x_visit(wallet=Depends(wallet_auth)):
     from sqlalchemy.exc import IntegrityError
+    created=False
     try:
         with engine().begin() as db:
             if not db.execute(select(season_profiles.c.wallet).where(season_profiles.c.wallet==wallet)).scalar():raise HTTPException(409,'Join Season 1 first')
             if not db.execute(select(x_visits.c.wallet).where(x_visits.c.wallet==wallet)).scalar():
                 db.execute(insert(x_visits).values(wallet=wallet,created_at=now()))
+                created=True
     except IntegrityError:
         pass  # Concurrent clicks on the same wallet still award only once.
+    else:
+        if created:invalidate_season_scores()
     return season_profile(wallet)
 
 class PointAward(BaseModel):
@@ -993,6 +1064,7 @@ def award_points(body:PointAward,admin=Depends(admin_auth)):
         if not existing or any(existing[k]!=v for k,v in {'wallet':wallet,'points':body.points,'reason':reason,'reference':reference,'admin':admin}.items()):
             raise HTTPException(409,'This request ID or feedback reference has already been used')
         duplicate=True
+    if not duplicate:invalidate_season_scores()
     return {'ok':True,'duplicate':duplicate,'profile':season_profile(wallet)}
 
 class RevokePoints(BaseModel):reason:str=Field(min_length=3,max_length=1000)
@@ -1004,6 +1076,7 @@ def revoke_points(id:str,body:RevokePoints,admin=Depends(admin_auth)):
         row=db.execute(select(point_awards).where(point_awards.c.id==id)).mappings().first()
         if not row:raise HTTPException(404,'Award not found')
         db.execute(update(point_awards).where(point_awards.c.id==id,point_awards.c.revoked_at.is_(None)).values(revoked_by=admin,revoked_reason=reason,revoked_at=now()))
+    invalidate_season_scores()
     return {'ok':True,'profile':season_profile(row['wallet'])}
 
 class StakeRepair(Attachment):wallet:str=Field(pattern=r'^0x[0-9a-fA-F]{40}$')

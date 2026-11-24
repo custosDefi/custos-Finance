@@ -231,6 +231,128 @@ def test_season_launch_referral_and_x_visit_awards(setup):
     assert c.get('/api/reality/season/profile/'+owner.address).json()['points']==110
 
 
+def test_season_scores_with_thousands_of_profiles_and_duplicate_stakes(setup):
+    c,*_=setup
+    wallet=lambda n:'0x'+format(n,'040x')
+    parent,child1,child2,child3,unregistered=(wallet(n) for n in (1,2,3,4,5000))
+    profiles=[{'wallet':wallet(n),'code':'CST'+str(n),'inviter':parent if n in (2,3,4) else '',
+               'x_handle':'','x_status':'none','created_at':1} for n in range(1,4414)]
+    asset_base={'name':'Example','symbol':'EX','story':'Example','description':'','category':'things',
+                'image_id':'image','mode':'free','supply':'100','review_status':'unverified',
+                'proof_code':'','proof_ids':'[]','review_note':'','created_at':1}
+    with r.engine().begin() as db:
+        db.execute(r.insert(r.season_profiles),profiles)
+        db.execute(r.insert(r.uploads).values(id='image',wallet=parent,name='image',type='image/png',private=0,created_at=1))
+        db.execute(r.insert(r.assets),[{**asset_base,'id':'asset'+str(n),'wallet':owner,
+                   'token_address':wallet(10000+n),'launch_id':n} for n,owner in ((1,child1),(2,child1),(3,child2))])
+        db.execute(r.insert(r.x_visits).values(wallet=child1,created_at=1))
+        db.execute(r.insert(r.stake_events),[{'id':'stake'+str(n),'wallet':owner,'side':'stake',
+                   'eth_amount':'1','cfi_amount':'1','tx_hash':'tx'+str(n),'block_number':n,'timestamp':1}
+                   for n,owner in ((1,child1),(2,child1),(3,unregistered))])
+    scores={row['wallet']:row for row in r.season_scores()}
+    assert len(scores)==4414
+    assert scores[parent]['qualifiedReferrals']==2 and scores[parent]['points']==200 and scores[parent]['rank']==2
+    assert scores[child1]['points']==210 and scores[child1]['verifiedTransactions']==2 and scores[child1]['rank']==1
+    assert scores[child2]['points']==100 and scores[child2]['rank']==3
+    assert scores[child3]['points']==0 and not scores[child3]['qualified']
+    assert scores[unregistered]['points']==100 and scores[unregistered]['stakeCompleted']
+    assert c.get('/api/reality/season/stats').json()=={'participants':4414,'verifiedTransactions':3,'pointsIssued':610,'qualifiedReferrals':2}
+
+
+def test_season_score_inflight_work_rechecks_a_concurrent_commit(monkeypatch):
+    import threading
+    from concurrent.futures import Future,ThreadPoolExecutor
+    started=threading.Event();waiting=threading.Event();release=threading.Event();calls=[]
+    class ObservedFuture(Future):
+        def result(self,*args,**kwargs):
+            waiting.set()
+            return super().result(*args,**kwargs)
+    def calculate():
+        calls.append(len(calls)+1)
+        if len(calls)==1:
+            started.set();assert release.wait(3)
+            return [{'points':0}]
+        return [{'points':100}]
+    monkeypatch.setattr(r,'Future',ObservedFuture)
+    monkeypatch.setattr(r,'calculate_season_scores',calculate)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first=executor.submit(r.season_scores)
+        assert started.wait(1)
+        second=executor.submit(r.season_scores)
+        assert waiting.wait(1)
+        r.invalidate_season_scores()
+        release.set()
+        assert first.result(timeout=3)==[{'points':100}]
+        assert second.result(timeout=3)==[{'points':100}]
+    assert len(calls)>=2
+
+
+def test_staking_quote_database_wait_does_not_block_other_requests(monkeypatch):
+    import asyncio,threading
+    from httpx import AsyncClient,ASGITransport
+    started=threading.Event();release=threading.Event()
+    def slow_config():
+        started.set();release.wait(3)
+        return {'cfi_staking':'0x'+'51'*20,'cfi_price_source':'binance'}
+    monkeypatch.setattr(r,'config',slow_config)
+    app=FastAPI();app.include_router(r.router)
+    @app.get('/ping')
+    async def ping():return {'ok':True}
+    async def exercise():
+        async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+            start=asyncio.get_running_loop().time()
+            request=asyncio.create_task(client.get('/api/reality/staking/quote?amount=0'))
+            try:
+                assert await asyncio.to_thread(started.wait,1) and not release.is_set()
+                assert asyncio.get_running_loop().time()-start<1
+                response=await asyncio.wait_for(client.get('/ping'),timeout=0.5)
+                assert response.json()=={'ok':True} and not release.is_set()
+            finally:
+                release.set()
+                assert (await request).status_code==400
+    asyncio.run(exercise())
+
+
+def test_rpc_url_does_not_require_a_database_connection(monkeypatch):
+    import asyncio
+    calls=[]
+    class RpcClient:
+        is_closed=False
+        def __init__(self,**kwargs):pass
+        async def post(self,url,json):
+            calls.append((url,json['method']))
+            return r.httpx.Response(200,json={'result':hex(91342)},request=r.httpx.Request('POST',url))
+    monkeypatch.setenv('GIWA_RPC_URL','https://rpc.example.test')
+    monkeypatch.setattr(r,'config',lambda:(_ for _ in ()).throw(AssertionError('database config was read')))
+    monkeypatch.setattr(r.httpx,'AsyncClient',RpcClient)
+    monkeypatch.setattr(r,'_rpc_client',None);monkeypatch.setattr(r,'_rpc_loop',None)
+    assert asyncio.run(r.rpc('eth_chainId',[]))==hex(91342)
+    assert calls==[('https://rpc.example.test','eth_chainId')]
+
+
+def test_listing_and_trade_indexes_persist_after_threaded_database_work(setup,monkeypatch):
+    import asyncio
+    c,owner,_,_,auth=setup;h=auth(owner);asset=create(c,h).json()
+    launchpad='0x'+'11'*20;tx='0x'+'22'*32
+    monkeypatch.setenv('REALITY_LAUNCHPAD_ADDRESS',launchpad)
+    with r.engine().begin() as db:
+        db.execute(r.update(r.assets).where(r.assets.c.id==asset['id']).values(token_address='0x'+'33'*20,launch_id=1,tx_hash=tx))
+        db.execute(r.insert(r.runtime_settings).values(key='index_block',value='90'))
+    async def fake_rpc(method,params):
+        if method=='eth_chainId':return hex(91342)
+        if method=='eth_blockNumber':return hex(100)
+        if method=='eth_getTransactionReceipt':return {'status':'0x1','to':launchpad,'from':owner.address.lower(),'blockNumber':hex(90)}
+        if method=='eth_getBlockByNumber':return {'timestamp':hex(1234)}
+        if method=='eth_getLogs':return []
+        raise AssertionError(method)
+    monkeypatch.setattr(r,'rpc',fake_rpc)
+    asyncio.run(r.sync_listings());asyncio.run(r.sync_trades())
+    with r.engine().connect() as db:
+        assert db.execute(r.select(r.launch_listings.c.timestamp).where(r.launch_listings.c.asset_id==asset['id'])).scalar()==1234
+        assert db.execute(r.select(r.runtime_settings.c.value).where(r.runtime_settings.c.key=='index_block')).scalar()=='99'
+        assert int(db.execute(r.select(r.runtime_settings.c.value).where(r.runtime_settings.c.key=='index_updated_at')).scalar())>0
+
+
 def test_market_filters_issued_assets_before_pagination(setup):
     c,owner,_,_,auth=setup;h=auth(owner)
     draft=create(c,h).json();issued=create(c,h).json()
