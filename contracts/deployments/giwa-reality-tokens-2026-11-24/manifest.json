@@ -1,0 +1,100 @@
+{
+  "chainId": 91342,
+  "launchpad": "0x61Ce8427cFC9947dAe0eBc84E367d6e666f90285",
+  "blockNumber": 42178793,
+  "recordedAt": "2026-11-24T12:40:32.659Z",
+  "count": 6605,
+  "chunks": [
+    "00001-01000.json",
+    "01001-02000.json",
+    "02001-03000.json",
+    "03001-04000.json",
+    "04001-05000.json",
+    "05001-06000.json",
+    "06001-06605.json"
+  ],
+  "supplyGroups": [
+    {
+      "supplyWei": "1000000000000000000000000",
+      "count": 6484,
+      "fullyVerifiedExample": "0x985305F62E8fEa995E18E396e050d9859CA9A84b"
+    },
+    {
+      "supplyWei": "100000000000000000000000",
+      "count": 34,
+      "fullyVerifiedExample": "0x9B273A3A3393271DFa6bc035E0745379E5aA8b27"
+    },
+    {
+      "supplyWei": "2000000000000000000000000",
+      "count": 29,
+      "fullyVerifiedExample": "0xb21f6cb1CF912633901D26ffD4B7062E1c2b947E"
+    },
+    {
+      "supplyWei": "500000000000000000000000",
+      "count": 26,
+      "fullyVerifiedExample": "0xA7Cf7Dba576Ac8cf62D39c17b251A92764617090"
+    },
+    {
+      "supplyWei": "21000000000000000000000000",
+      "count": 7,
+      "fullyVerifiedExample": "0xcD9756800deD32E307B82c6441f92fa7c024B55F"
+    },
+    {
+      "supplyWei": "1000000000000000000000000000",
+      "count": 6,
+      "fullyVerifiedExample": "0x5EdDFe484dB5583A9e6BAa02B6D872567d9a7D44"
+    },
+    {
+      "supplyWei": "100000000000000000000000000",
+      "count": 6,
+      "fullyVerifiedExample": "0xd3d8320C09270B0137ed68659B4Ff4641d41B894"
+    },
+    {
+      "supplyWei": "1000000000000000000000",
+      "count": 3,
+      "fullyVerifiedExample": "0xf3a95897baD31Cad28ee1B491F5eE8176884d437"
+    },
+    {
+      "supplyWei": "10000000000000000000000000",
+      "count": 2,
+      "fullyVerifiedExample": "0xA94BFEC3b36D7b16beA6844FFeAe9D85DA119e6A"
+    },
+    {
+      "supplyWei": "100000000000000000000000000000",
+      "count": 2,
+      "fullyVerifiedExample": "0xF1c55Ab41473b82B5A4aFA7b93B4df3A55d58775"
+    },
+    {
+      "supplyWei": "10000000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0xccFBE06F1282C04171B5cfF3D1595E791A8b35c0"
+    },
+    {
+      "supplyWei": "9999000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0xD55E9B8A32d88322b36eC16838eC44456ae200f8"
+    },
+    {
+      "supplyWei": "1000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0x60F314Ed5275A231a5dD15D5Ee64F2E023438694"
+    },
+    {
+      "supplyWei": "688000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0x6319f337dF9372A74e6Ebf5a39D6FcCF71f012E2"
+    },
+    {
+      "supplyWei": "500000000000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0xC8A8bbA289Ae150986481Eee76Fa24b727D57C68"
+    },
+    {
+      "supplyWei": "66656000000000000000000",
+      "count": 1,
+      "fullyVerifiedExample": "0xf48eEDd0f78646b96eB68A63782411744722309D"
+    }
+  ],
+  "source": "contracts/launch-bridge/src/CustosRealityLaunchpad.sol",
+  "verificationNote": "Verified example for each immutable supply; other instances may display source as a verified twin without being individually verified."
+}

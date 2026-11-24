@@ -1,0 +1,726 @@
+{
+  "chainId": 91342,
+  "count": 80,
+  "items": [
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "testUSDC",
+      "address": "0xcfD64985C0812E0A80Daa18c8a026FCa555113a2",
+      "contract": "TestUSDC",
+      "source": "contracts/markets/contracts/perp/TestUSDC.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xcfD64985C0812E0A80Daa18c8a026FCa555113a2",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "oracleRouter",
+      "address": "0x905778a1d1DBfd78fb1bA6F756f439B1d92Da4a0",
+      "contract": "PythOracleRouter",
+      "source": "contracts/markets/contracts/perp/PythOracleRouter.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x905778a1d1DBfd78fb1bA6F756f439B1d92Da4a0",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "registry",
+      "address": "0xa1eb5a89DabCb4A780c6191899f94D5582300880",
+      "contract": "RwaVerificationRegistry",
+      "source": "contracts/markets/contracts/RwaVerificationRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xa1eb5a89DabCb4A780c6191899f94D5582300880",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "assetFactory",
+      "address": "0x7BB430aA9fF0f9080c970855AFCE7Ef6C4Ce147F",
+      "contract": "RwaAssetFactory",
+      "source": "contracts/markets/contracts/RwaAssetFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x7BB430aA9fF0f9080c970855AFCE7Ef6C4Ce147F",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "poolFactory",
+      "address": "0x5c4F7016e0Ea75f167d34dE210D25a2973150ba9",
+      "contract": "RwaPoolFactory",
+      "source": "contracts/markets/contracts/RwaPoolFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x5c4F7016e0Ea75f167d34dE210D25a2973150ba9",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "marketRegistry",
+      "address": "0x4Ff5F14aed26375c402c0C1164b474423ae5B3b6",
+      "contract": "MarketRegistry",
+      "source": "contracts/markets/contracts/perp/MarketRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x4Ff5F14aed26375c402c0C1164b474423ae5B3b6",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "marginVault",
+      "address": "0xBD1017f8c7ce46920bef44612F6C3f4bF29Ac770",
+      "contract": "MarginVault",
+      "source": "contracts/markets/contracts/perp/MarginVault.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xBD1017f8c7ce46920bef44612F6C3f4bF29Ac770",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "perpEngine",
+      "address": "0xdDA5dC86b949008358b4f6a21363256B5f7A0aA6",
+      "contract": "GiwaPerpEngineV12",
+      "source": "contracts/markets/contracts/perp/GiwaPerpEngineV12.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xdDA5dC86b949008358b4f6a21363256B5f7A0aA6",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot XAU token",
+      "address": "0xCA2E6a1be477E517730cfA0e6b675D9CA9425258",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xCA2E6a1be477E517730cfA0e6b675D9CA9425258",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot XAU pool",
+      "address": "0x306495b5a0eB41ffeb64D291881F78803420dCe7",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x306495b5a0eB41ffeb64D291881F78803420dCe7",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot XAG token",
+      "address": "0x2D7d3aC00D2Af7Ae82E8854252c86662A71B3dA8",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x2D7d3aC00D2Af7Ae82E8854252c86662A71B3dA8",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot XAG pool",
+      "address": "0x7C117894Dc8a262fEDD93Be95F34D85c67EE5e1F",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x7C117894Dc8a262fEDD93Be95F34D85c67EE5e1F",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot OIL token",
+      "address": "0xb2cDbbbA725Bdc1Cf967fD222436D7adAca87D23",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xb2cDbbbA725Bdc1Cf967fD222436D7adAca87D23",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "spot OIL pool",
+      "address": "0x72F3Fa1D8C18Fb2b6460D26eFFf42F7dd4a9BAaF",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x72F3Fa1D8C18Fb2b6460D26eFFf42F7dd4a9BAaF",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rKINV26 token",
+      "address": "0xaB8F6F6e51266a099dc1634932b9729bb519cC2C",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xaB8F6F6e51266a099dc1634932b9729bb519cC2C",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rKINV26 pool",
+      "address": "0x243a49BeB298db0Fe82CF6249Aa7fC28cf390eAA",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x243a49BeB298db0Fe82CF6249Aa7fC28cf390eAA",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rSOLAR27 token",
+      "address": "0x48D65C6Bdc02Da7882668C1Cf22644AF0a245A34",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x48D65C6Bdc02Da7882668C1Cf22644AF0a245A34",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rSOLAR27 pool",
+      "address": "0x832EaE154831929B2ed50198e5A7A01B898d5078",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x832EaE154831929B2ed50198e5A7A01B898d5078",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rCOFFEE26 token",
+      "address": "0xA8F22D363Bd53Aee1593871dC0fbe4e81bAF0ACb",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xA8F22D363Bd53Aee1593871dC0fbe4e81bAF0ACb",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828095508-fac6ee42",
+      "name": "RWA rCOFFEE26 pool",
+      "address": "0x120a44617e9876312667970bE27261d994264B79",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x120a44617e9876312667970bE27261d994264B79",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "testUSDC",
+      "address": "0x7cF2328985e754ED424aD96423Ae501b9E2d6fFb",
+      "contract": "TestUSDC",
+      "source": "contracts/markets/contracts/perp/TestUSDC.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x7cF2328985e754ED424aD96423Ae501b9E2d6fFb",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "oracleRouter",
+      "address": "0x8A01685cB334CeB51aB37B0e9D6a997d7aeeE6Fa",
+      "contract": "PythOracleRouter",
+      "source": "contracts/markets/contracts/perp/PythOracleRouter.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x8A01685cB334CeB51aB37B0e9D6a997d7aeeE6Fa",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "registry",
+      "address": "0x2A59E3A2F7Fff7Db5b0E772dfB8e53fE8364ff82",
+      "contract": "RwaVerificationRegistry",
+      "source": "contracts/markets/contracts/RwaVerificationRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x2A59E3A2F7Fff7Db5b0E772dfB8e53fE8364ff82",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "assetFactory",
+      "address": "0x54f3C0a28EaF1E4900cE561FE97e6F86F282bA97",
+      "contract": "RwaAssetFactory",
+      "source": "contracts/markets/contracts/RwaAssetFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x54f3C0a28EaF1E4900cE561FE97e6F86F282bA97",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "poolFactory",
+      "address": "0x05b250e9a81C5eb2aD481FB7acE5E084017126f8",
+      "contract": "RwaPoolFactory",
+      "source": "contracts/markets/contracts/RwaPoolFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x05b250e9a81C5eb2aD481FB7acE5E084017126f8",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "marketRegistry",
+      "address": "0x4a1BFdcd8CaB18Fc7470a3035aC9b88cb32fB98e",
+      "contract": "MarketRegistry",
+      "source": "contracts/markets/contracts/perp/MarketRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x4a1BFdcd8CaB18Fc7470a3035aC9b88cb32fB98e",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "marginVault",
+      "address": "0xB687B4711b163bC4c6f447a514Cf6Cc0DafBdA56",
+      "contract": "MarginVault",
+      "source": "contracts/markets/contracts/perp/MarginVault.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xB687B4711b163bC4c6f447a514Cf6Cc0DafBdA56",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "perpEngine",
+      "address": "0x82Fe9DC9e274803934E67e983080e11B25B8F80D",
+      "contract": "GiwaPerpEngineV12",
+      "source": "contracts/markets/contracts/perp/GiwaPerpEngineV12.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x82Fe9DC9e274803934E67e983080e11B25B8F80D",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot XAU token",
+      "address": "0x6Ccb8309564331B512C615B905ca3EB707Edb575",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x6Ccb8309564331B512C615B905ca3EB707Edb575",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot XAU pool",
+      "address": "0xEbDd0c79deae9b6418daD317142Dcc3F2cA99608",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xEbDd0c79deae9b6418daD317142Dcc3F2cA99608",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot XAG token",
+      "address": "0xE9038dff0977115141Ae42c722cDA7c0de481c95",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xE9038dff0977115141Ae42c722cDA7c0de481c95",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot XAG pool",
+      "address": "0xBE0bcC3d050249d267Ab34CddA238565a311793a",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xBE0bcC3d050249d267Ab34CddA238565a311793a",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot OIL token",
+      "address": "0x1F024eFbFd238275c982448615176b879f067936",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x1F024eFbFd238275c982448615176b879f067936",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "spot OIL pool",
+      "address": "0x8d3f6D8A31E2BCb643da6B3Db54283a00643a85D",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x8d3f6D8A31E2BCb643da6B3Db54283a00643a85D",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rKINV26 token",
+      "address": "0xbC991DB2676Abe8a58D167974cdf28cb05F9E0f0",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xbC991DB2676Abe8a58D167974cdf28cb05F9E0f0",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rKINV26 pool",
+      "address": "0xd0533d672C7Ff89d9F96992C656f02994B890a62",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xd0533d672C7Ff89d9F96992C656f02994B890a62",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rSOLAR27 token",
+      "address": "0xD9c02c30E87BD3bd7Aa00eE0c3aAF2DEDFD05de3",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xD9c02c30E87BD3bd7Aa00eE0c3aAF2DEDFD05de3",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rSOLAR27 pool",
+      "address": "0xB6CC4Cc0F787d964e68B07B6520e396d68b2fECC",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xB6CC4Cc0F787d964e68B07B6520e396d68b2fECC",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rCOFFEE26 token",
+      "address": "0x1fBdC6D7434d3de98e65a4C1BEbAa378cbb794Be",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x1fBdC6D7434d3de98e65a4C1BEbAa378cbb794Be",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828100415-fac6ee42",
+      "name": "RWA rCOFFEE26 pool",
+      "address": "0x101b093EEC73ECD50ea1C865cb19Ea119A042fA4",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x101b093EEC73ECD50ea1C865cb19Ea119A042fA4",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "testUSDC",
+      "address": "0x1c7Fdb68f2a3431CBE63B12Eacb63CAf9D8890Af",
+      "contract": "TestUSDC",
+      "source": "contracts/markets/contracts/perp/TestUSDC.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x1c7Fdb68f2a3431CBE63B12Eacb63CAf9D8890Af",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "oracleRouter",
+      "address": "0xfc5bE0C4373C2D4C3f6F6e9D3696AC8B9361F084",
+      "contract": "PythOracleRouter",
+      "source": "contracts/markets/contracts/perp/PythOracleRouter.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xfc5bE0C4373C2D4C3f6F6e9D3696AC8B9361F084",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "registry",
+      "address": "0xEDEAa147edC4112AC697A61B0b773b15361339EA",
+      "contract": "RwaVerificationRegistry",
+      "source": "contracts/markets/contracts/RwaVerificationRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xEDEAa147edC4112AC697A61B0b773b15361339EA",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "assetFactory",
+      "address": "0xFA7D3027d1f844C307ecea2c506a81166fa37A2c",
+      "contract": "RwaAssetFactory",
+      "source": "contracts/markets/contracts/RwaAssetFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xFA7D3027d1f844C307ecea2c506a81166fa37A2c",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "poolFactory",
+      "address": "0xAf9529BF4A7ac7Dd26255eEe984CE8Ca9241D55E",
+      "contract": "RwaPoolFactory",
+      "source": "contracts/markets/contracts/RwaPoolFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xAf9529BF4A7ac7Dd26255eEe984CE8Ca9241D55E",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "marketRegistry",
+      "address": "0xF3013E46b7957879416C996ba3eeF79bfE1A50FE",
+      "contract": "MarketRegistry",
+      "source": "contracts/markets/contracts/perp/MarketRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xF3013E46b7957879416C996ba3eeF79bfE1A50FE",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "marginVault",
+      "address": "0xa0D6454c23d012e1292ec7990742A80e768fbB6E",
+      "contract": "MarginVault",
+      "source": "contracts/markets/contracts/perp/MarginVault.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xa0D6454c23d012e1292ec7990742A80e768fbB6E",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "perpEngine",
+      "address": "0x9F0835F430aD4c6fe0A9420AfCE6b4bf36d3b0CB",
+      "contract": "GiwaPerpEngineV12",
+      "source": "contracts/markets/contracts/perp/GiwaPerpEngineV12.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x9F0835F430aD4c6fe0A9420AfCE6b4bf36d3b0CB",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot XAU token",
+      "address": "0xB672a53E3f0781E058F72690B1579a6892B1A871",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xB672a53E3f0781E058F72690B1579a6892B1A871",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot XAU pool",
+      "address": "0x44850184e7ae94B9909AB9b484E9a45b28DdBB89",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x44850184e7ae94B9909AB9b484E9a45b28DdBB89",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot XAG token",
+      "address": "0x2aE2756ff4F08cb8718C25a4c89b2CC42843151E",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x2aE2756ff4F08cb8718C25a4c89b2CC42843151E",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot XAG pool",
+      "address": "0xC19907c7cd615f09B68d644C46bc0D39b0326bd2",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xC19907c7cd615f09B68d644C46bc0D39b0326bd2",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot OIL token",
+      "address": "0x5DA87f28283BC35E978335be7b0513fa8d07121a",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x5DA87f28283BC35E978335be7b0513fa8d07121a",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "spot OIL pool",
+      "address": "0x4E72B874998Ec330aC40A13E314C167E39Dd1014",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x4E72B874998Ec330aC40A13E314C167E39Dd1014",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rKINV26 token",
+      "address": "0xdb23f4B260700999cBF4f86878A646D74412BDE8",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xdb23f4B260700999cBF4f86878A646D74412BDE8",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rKINV26 pool",
+      "address": "0x43bf339A5b791587A5419Aa1d3f88508d5A97c9F",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x43bf339A5b791587A5419Aa1d3f88508d5A97c9F",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rSOLAR27 token",
+      "address": "0x3ca9C6BD47332b2e8d819a95fB2805A71Acc4C94",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x3ca9C6BD47332b2e8d819a95fB2805A71Acc4C94",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rSOLAR27 pool",
+      "address": "0x8f42B22F55467837F1432e98698Aa058b7E663a4",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x8f42B22F55467837F1432e98698Aa058b7E663a4",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rCOFFEE26 token",
+      "address": "0x67d4B20EEF7Aff1Cb579A854D547E8B09591c805",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x67d4B20EEF7Aff1Cb579A854D547E8B09591c805",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260828104037-fac6ee42",
+      "name": "RWA rCOFFEE26 pool",
+      "address": "0xca340191D4Dab7c5Bc48B10b7f8A935b616354ef",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xca340191D4Dab7c5Bc48B10b7f8A935b616354ef",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "testUSDC",
+      "address": "0x9a434B8578319433844154DC4eb6e4CaA119EdE8",
+      "contract": "TestUSDC",
+      "source": "contracts/markets/contracts/perp/TestUSDC.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x9a434B8578319433844154DC4eb6e4CaA119EdE8",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "oracleRouter",
+      "address": "0xD5005CcB436c0479206cD0757740cF249144C9E7",
+      "contract": "PythOracleRouter",
+      "source": "contracts/markets/contracts/perp/PythOracleRouter.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xD5005CcB436c0479206cD0757740cF249144C9E7",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "registry",
+      "address": "0x0689AFa9ED68115844707b7625088ef5e6e1ac12",
+      "contract": "RwaVerificationRegistry",
+      "source": "contracts/markets/contracts/RwaVerificationRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x0689AFa9ED68115844707b7625088ef5e6e1ac12",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "assetFactory",
+      "address": "0xc766701e6fB30e3fcE4CeB1167ca2762BF3C5B91",
+      "contract": "RwaAssetFactory",
+      "source": "contracts/markets/contracts/RwaAssetFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xc766701e6fB30e3fcE4CeB1167ca2762BF3C5B91",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "poolFactory",
+      "address": "0x43cCDa15C2fd90b887566ffbFB6157C6F63d0d6B",
+      "contract": "RwaPoolFactory",
+      "source": "contracts/markets/contracts/RwaPoolFactory.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x43cCDa15C2fd90b887566ffbFB6157C6F63d0d6B",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "marketRegistry",
+      "address": "0x3E7D87cFA2f30074C7E7CF4206CE4e4ECBDaCc30",
+      "contract": "MarketRegistry",
+      "source": "contracts/markets/contracts/perp/MarketRegistry.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x3E7D87cFA2f30074C7E7CF4206CE4e4ECBDaCc30",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "marginVault",
+      "address": "0xD4ecF7bB001554F7d312036c86699dC2d6218224",
+      "contract": "MarginVault",
+      "source": "contracts/markets/contracts/perp/MarginVault.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xD4ecF7bB001554F7d312036c86699dC2d6218224",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "perpEngine",
+      "address": "0x7736bb4341491C011087d407d76318F4a581395F",
+      "contract": "GiwaPerpEngineV12",
+      "source": "contracts/markets/contracts/perp/GiwaPerpEngineV12.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x7736bb4341491C011087d407d76318F4a581395F",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot XAU token",
+      "address": "0xaaff09f126342553829c38F6b7B75da63C7F7bbE",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xaaff09f126342553829c38F6b7B75da63C7F7bbE",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot XAU pool",
+      "address": "0x92033FD87e9Fb97F870F0162ebAFc4bc7fEdF8ec",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x92033FD87e9Fb97F870F0162ebAFc4bc7fEdF8ec",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot XAG token",
+      "address": "0x5e50e53864D97EA90fe6c754ED1042541E8831C4",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x5e50e53864D97EA90fe6c754ED1042541E8831C4",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot XAG pool",
+      "address": "0xbF9C4F4a5805c287aa062AA8F4772d94E4f007f2",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xbF9C4F4a5805c287aa062AA8F4772d94E4f007f2",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot OIL token",
+      "address": "0x6ef49E02BE1BAc8C9085a3A31DF19efc318EA3ca",
+      "contract": "SyntheticRwaToken",
+      "source": "contracts/markets/contracts/spot/SyntheticRwaToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x6ef49E02BE1BAc8C9085a3A31DF19efc318EA3ca",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "spot OIL pool",
+      "address": "0x970d57Bea4d0f7b8dd6D851520008a20C95f16Ab",
+      "contract": "OracleSpotPool",
+      "source": "contracts/markets/contracts/spot/OracleSpotPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x970d57Bea4d0f7b8dd6D851520008a20C95f16Ab",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rKINV26 token",
+      "address": "0x867590520D75F6597cb50ae30E35698649642229",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x867590520D75F6597cb50ae30E35698649642229",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rKINV26 pool",
+      "address": "0x2541a6D54618Cb533cE35bAABE471DdCDb59aD96",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x2541a6D54618Cb533cE35bAABE471DdCDb59aD96",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rSOLAR27 token",
+      "address": "0xf60969b4C5f32105FF90956199048A0Dc8219A94",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0xf60969b4C5f32105FF90956199048A0Dc8219A94",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rSOLAR27 pool",
+      "address": "0x85b0de9bd837b4C5803c2b9d4aAb8e087dCBDAB3",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x85b0de9bd837b4C5803c2b9d4aAb8e087dCBDAB3",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rCOFFEE26 token",
+      "address": "0x31354F683a74E55E6139b8b70776458C7A4B92aF",
+      "contract": "RwaAssetToken",
+      "source": "contracts/markets/contracts/RwaAssetToken.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x31354F683a74E55E6139b8b70776458C7A4B92aF",
+      "fullyVerified": true
+    },
+    {
+      "run": "91342-20260906011746-06709d97",
+      "name": "RWA rCOFFEE26 pool",
+      "address": "0x3ADCAFB6E19344E2528E17891eeA6c19f115B9ac",
+      "contract": "RwaAMMPool",
+      "source": "contracts/markets/contracts/RwaAMMPool.sol",
+      "explorer": "https://sepolia-explorer.giwa.io/address/0x3ADCAFB6E19344E2528E17891eeA6c19f115B9ac",
+      "fullyVerified": true
+    }
+  ]
+}

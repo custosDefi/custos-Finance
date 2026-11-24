@@ -1,5 +1,7 @@
 # Custos Swap Monorepo
 
+链上合约源码、部署地址与浏览器验证结果见 [合约开源索引](contracts/README.md)。
+
 这是一个本地可完整跑通的 DEX 项目仓库，包含：
 - 合约工程（Hardhat）
 - SDK（`custoswap-sdk` 本地源码版）
